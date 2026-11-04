@@ -30,13 +30,12 @@ Extensions, prompt templates, and skills can add commands. The command menu in P
 | `/compact [instructions]` | Compact the current context, optionally with custom instructions |
 | `/import <path>` | Import a JSONL session, preserving its ID and working directory |
 
-## Export and share
+## Export
 
 | Command | Description |
 |---|---|
 | `/copy` | Copy the last assistant message |
 | `/export [path]` | Export the session as HTML or JSONL |
-| `/share` | Upload the session and return a viewer link |
 | `/bug [description]` | Prepare a private bug report for the Pi developers |
 
 Review a session before exporting or sharing it. Sessions can contain prompts, tool arguments, command output, file contents, and credentials exposed during the conversation.

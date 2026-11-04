@@ -59,24 +59,6 @@
       ],
       "default": "auto"
     },
-    "sessionShareDestination": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "auto"
-        },
-        {
-          "type": "string",
-          "const": "gist"
-        },
-        {
-          "type": "string",
-          "const": "radius"
-        }
-      ],
-      "description": "Destination used by /share. \"auto\" uses Radius when authenticated and otherwise creates a GitHub gist.",
-      "default": "auto"
-    },
     "steeringMode": {
       "anyOf": [
         {
@@ -279,20 +261,6 @@
       "type": "boolean",
       "description": "Show the condensed changelog after update; use /changelog for the full changelog.",
       "default": false
-    },
-    "enableInstallTelemetry": {
-      "type": "boolean",
-      "description": "Send an anonymous version and update ping after changelog-detected updates.",
-      "default": true
-    },
-    "enableAnalytics": {
-      "type": "boolean",
-      "description": "Opt in to analytics data sharing.",
-      "default": false
-    },
-    "trackingId": {
-      "type": "string",
-      "description": "Analytics tracking identifier, generated when analytics is enabled."
     },
     "packages": {
       "type": "array",

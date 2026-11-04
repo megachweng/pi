@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as path from "node:path";
 import type { Container, EditorComponent, TUI } from "@earendil-works/pi-tui";
 import { getAuthCredential } from "../../cli/auth-command.ts";
@@ -19,7 +20,6 @@ import { serializeSessionBranch } from "../../core/session-export.ts";
 import { BorderedLoader } from "./components/bordered-loader.ts";
 import { ExtensionEditorComponent } from "./components/extension-editor.ts";
 import { ExtensionSelectorComponent } from "./components/extension-selector.ts";
-import { createShareTrailingEntries } from "./session-share.ts";
 import { theme } from "./theme/theme.ts";
 
 interface BugReportContext {
@@ -168,10 +168,35 @@ function buildBundle(session: AgentSession, options: BugReportOptions, summary: 
 		summary,
 		sessionJsonl: options.includeSession
 			? serializeSessionBranch(session.sessionManager, (parentId, timestamp) =>
-					createShareTrailingEntries(session, parentId, timestamp),
+					createBugReportSessionEntries(session, parentId, timestamp),
 				)
 			: undefined,
 	};
+}
+
+/** Trailing session entry carrying the system prompt and tool schemas for reading the report's transcript. */
+export function createBugReportSessionEntries(
+	session: AgentSession,
+	parentId: string | null,
+	timestamp: string,
+): object[] {
+	return [
+		{
+			type: "custom",
+			customType: "pi.share",
+			id: crypto.randomUUID().slice(0, 8),
+			parentId,
+			timestamp,
+			data: {
+				systemPrompt: session.state.systemPrompt,
+				tools: session.state.tools.map((tool) => ({
+					name: tool.name,
+					description: tool.description,
+					parameters: tool.parameters,
+				})),
+			},
+		},
+	];
 }
 
 async function upload(context: BugReportContext, bundle: BugReportBundle): Promise<string | undefined> {

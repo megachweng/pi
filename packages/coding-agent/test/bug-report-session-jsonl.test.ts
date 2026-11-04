@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AssistantMessage, ToolResultMessage } from "@earendil-works/pi-ai/compat";
@@ -7,12 +7,13 @@ import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import { defineTool } from "../src/core/extensions/types.ts";
 import { createAgentSession } from "../src/core/sdk.ts";
+import { serializeSessionBranch } from "../src/core/session-export.ts";
 import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
-import { exportSessionForShare } from "../src/modes/interactive/session-share.ts";
+import { createBugReportSessionEntries } from "../src/modes/interactive/bug-report.ts";
 import { assistantMsg, userMsg } from "./utilities.ts";
 
-describe("JSONL share export", () => {
+describe("bug report session JSONL", () => {
 	const tempDirs: string[] = [];
 
 	afterEach(() => {
@@ -63,19 +64,12 @@ describe("JSONL share export", () => {
 			const resultId = sessionManager.appendMessage(result);
 			const originalEntryIds = sessionManager.getBranch().map((entry) => entry.id);
 
-			const normalPath = join(tempDir, "normal.jsonl");
-			session.exportToJsonl(normalPath);
-			const normalRecords = readFileSync(normalPath, "utf8")
-				.trim()
-				.split("\n")
-				.map((line) => JSON.parse(line) as Record<string, unknown>);
-			expect(normalRecords.some((record) => record.type === "custom" && record.customType === "pi.share")).toBe(
-				false,
+			const jsonl = serializeSessionBranch(sessionManager, (parentId, timestamp) =>
+				createBugReportSessionEntries(session, parentId, timestamp),
 			);
-
-			const sharePath = join(tempDir, "share.jsonl");
-			exportSessionForShare(sharePath, session);
-			const records = readFileSync(sharePath, "utf8")
+			const reportPath = join(tempDir, "report.jsonl");
+			writeFileSync(reportPath, jsonl);
+			const records = jsonl
 				.trim()
 				.split("\n")
 				.map((line) => JSON.parse(line) as Record<string, unknown>);
@@ -108,7 +102,7 @@ describe("JSONL share export", () => {
 			expect(shareEntry.data).not.toHaveProperty("theme");
 			expect(shareEntry.data).not.toHaveProperty("version");
 
-			const imported = SessionManager.open(sharePath);
+			const imported = SessionManager.open(reportPath);
 			expect(imported.getLeafId()).toBe(shareEntry.id);
 			expect(imported.buildSessionContext().messages.map((message) => message.role)).toEqual([
 				"user",

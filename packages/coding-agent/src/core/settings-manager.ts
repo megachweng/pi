@@ -18,7 +18,6 @@ import type {
 	MermaidRenderingMode,
 	PackageSource,
 	QuietStartup,
-	SessionShareDestination,
 	Settings,
 	ThinkingBudgetsSettings,
 	TransportSetting,
@@ -42,7 +41,6 @@ export type {
 	ProviderRetrySettings,
 	QuietStartup,
 	RetrySettings,
-	SessionShareDestination,
 	Settings,
 	TerminalSettings,
 	ThinkingBudgetsSettings,
@@ -817,19 +815,6 @@ export class SettingsManager {
 		this.save();
 	}
 
-	getSessionShareDestination(): SessionShareDestination {
-		const destination = this.settings.sessionShareDestination;
-		return destination === "gist" || destination === "radius"
-			? destination
-			: SETTINGS_DEFAULTS.sessionShareDestination;
-	}
-
-	setSessionShareDestination(destination: SessionShareDestination): void {
-		this.globalSettings.sessionShareDestination = destination;
-		this.markModified("sessionShareDestination");
-		this.save();
-	}
-
 	getCompactionEnabled(): boolean {
 		return this.settings.compaction?.enabled ?? SETTINGS_DEFAULTS.compaction.enabled;
 	}
@@ -1055,35 +1040,6 @@ export class SettingsManager {
 	setCollapseChangelog(collapse: boolean): void {
 		this.globalSettings.collapseChangelog = collapse;
 		this.markModified("collapseChangelog");
-		this.save();
-	}
-
-	getEnableInstallTelemetry(): boolean {
-		return this.settings.enableInstallTelemetry ?? SETTINGS_DEFAULTS.enableInstallTelemetry;
-	}
-
-	setEnableInstallTelemetry(enabled: boolean): void {
-		this.globalSettings.enableInstallTelemetry = enabled;
-		this.markModified("enableInstallTelemetry");
-		this.save();
-	}
-
-	getEnableAnalytics(): boolean {
-		return this.settings.enableAnalytics ?? SETTINGS_DEFAULTS.enableAnalytics;
-	}
-
-	getTrackingId(): string | undefined {
-		return this.settings.trackingId;
-	}
-
-	/** Set the analytics opt-in preference; generates a tracking identifier on first opt-in */
-	setEnableAnalytics(enabled: boolean): void {
-		this.globalSettings.enableAnalytics = enabled;
-		this.markModified("enableAnalytics");
-		if (enabled && !this.globalSettings.trackingId) {
-			this.globalSettings.trackingId = randomUUID();
-			this.markModified("trackingId");
-		}
 		this.save();
 	}
 

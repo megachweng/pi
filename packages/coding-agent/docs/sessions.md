@@ -61,11 +61,11 @@ By default, Pi stores sessions under `~/.pi/agent/sessions/`, grouped by working
 
 Use `--no-session` for an ephemeral run. An ephemeral session cannot be resumed after Pi exits.
 
-## Export or share a session
+## Export a session
 
-Use `/export` to write the current session as HTML or JSONL. Use `/share` to upload it and get a viewer link. By default, Pi uses a Radius artifact when Radius authentication is configured; otherwise, it uses a private GitHub gist. Set [`sessionShareDestination`](settings.md#sessions-and-context) to `gist` or `radius` to force one destination.
+Use `/export` to write the current session as HTML or JSONL.
 
-Review exported or shared sessions first. They can contain prompts, model responses, tool arguments, command output, file contents, and extension messages.
+Review exported sessions first. They can contain prompts, model responses, tool arguments, command output, file contents, and extension messages.
 
 ## Report a bug
 

@@ -8,7 +8,6 @@ import {
 	getAttributionHeaders,
 	type Model,
 	normalizeContext,
-	PI_ATTRIBUTION,
 	type SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -23,7 +22,6 @@ describe("createAgentSession client identity", () => {
 	let tempDir: string;
 	let cwd: string;
 	let agentDir: string;
-	let originalTelemetryEnv: string | undefined;
 
 	beforeEach(() => {
 		tempDir = join(tmpdir(), `pi-sdk-identity-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -31,16 +29,9 @@ describe("createAgentSession client identity", () => {
 		agentDir = join(tempDir, "agent");
 		mkdirSync(cwd, { recursive: true });
 		mkdirSync(agentDir, { recursive: true });
-		originalTelemetryEnv = process.env.PI_TELEMETRY;
-		delete process.env.PI_TELEMETRY;
 	});
 
 	afterEach(() => {
-		if (originalTelemetryEnv === undefined) {
-			delete process.env.PI_TELEMETRY;
-		} else {
-			process.env.PI_TELEMETRY = originalTelemetryEnv;
-		}
 		if (tempDir && existsSync(tempDir)) {
 			rmSync(tempDir, { recursive: true, force: true });
 		}
@@ -87,15 +78,11 @@ describe("createAgentSession client identity", () => {
 	async function captureOptions(
 		model: Model<Api>,
 		options: {
-			telemetryEnabled?: boolean;
 			providerHeaders?: Record<string, string>;
 			sessionId?: string;
 		} = {},
 	): Promise<SimpleStreamOptions | undefined> {
 		const settingsManager = SettingsManager.create(cwd, agentDir);
-		if (options.telemetryEnabled === false) {
-			settingsManager.setEnableInstallTelemetry(false);
-		}
 
 		const authStorage = AuthStorage.inMemory({
 			[model.provider]: { type: "api_key", key: "test-api-key" },
@@ -139,35 +126,16 @@ describe("createAgentSession client identity", () => {
 		}
 	}
 
-	it("identifies pi with a detailed User-Agent and attribution as a CLI agent", async () => {
-		const model = createModel("openrouter", "https://openrouter.ai/api/v1");
+	it.each([
+		["openrouter", "https://openrouter.ai/api/v1"],
+		["nvidia", "https://integrate.api.nvidia.com/v1"],
+		["opencode", "https://opencode.ai/zen/v1"],
+	])("sends no attribution headers to %s", async (provider, baseUrl) => {
+		const model = createModel(provider, baseUrl);
 		const options = await captureOptions(model);
-
-		expect(options?.identity).toEqual({
-			userAgent: "detailed",
-			version: VERSION,
-			attribution: PI_ATTRIBUTION,
-		});
-		expect(getAttributionHeaders(model, options?.identity)).toEqual({
-			"HTTP-Referer": "https://pi.dev",
-			"X-OpenRouter-Title": "pi",
-			"X-OpenRouter-Categories": "cli-agent",
-		});
-	});
-
-	it("turns attribution off when telemetry is disabled", async () => {
-		const model = createModel("nvidia", "https://integrate.api.nvidia.com/v1");
-		const options = await captureOptions(model, { telemetryEnabled: false });
 
 		expect(options?.identity).toEqual({ userAgent: "detailed", version: VERSION, attribution: null });
 		expect(getAttributionHeaders(model, options?.identity)).toEqual({});
-	});
-
-	it("turns attribution off with PI_TELEMETRY=0", async () => {
-		process.env.PI_TELEMETRY = "0";
-		const options = await captureOptions(createModel("openrouter", "https://openrouter.ai/api/v1"));
-
-		expect(options?.identity?.attribution).toBeNull();
 	});
 
 	it("adds OpenCode session headers for custom OpenCode providers", async () => {

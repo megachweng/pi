@@ -4,7 +4,11 @@ import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { shouldRunFirstTimeSetup } from "../src/cli/startup-ui.ts";
 import { ENV_AGENT_DIR } from "../src/config.ts";
-import { SettingsManager } from "../src/core/settings-manager.ts";
+import {
+	FirstTimeSetupComponent,
+	type FirstTimeSetupResult,
+} from "../src/modes/interactive/components/first-time-setup.ts";
+import { initTheme } from "../src/modes/interactive/theme/theme.ts";
 
 describe("shouldRunFirstTimeSetup", () => {
 	const originalPiExperimental = process.env.PI_EXPERIMENTAL;
@@ -56,40 +60,19 @@ describe("shouldRunFirstTimeSetup", () => {
 	});
 });
 
-describe("analytics settings", () => {
-	it("defaults to disabled with no tracking identifier", () => {
-		const manager = SettingsManager.inMemory();
+describe("FirstTimeSetupComponent", () => {
+	it("finishes on the theme choice without an analytics step", () => {
+		initTheme("dark");
+		const results: FirstTimeSetupResult[] = [];
+		const component = new FirstTimeSetupComponent({
+			onThemePreview: () => {},
+			onSubmit: (result) => results.push(result),
+			onCancel: () => {},
+		});
 
-		expect(manager.getEnableAnalytics()).toBe(false);
-		expect(manager.getTrackingId()).toBeUndefined();
-	});
+		component.handleInput("j");
+		component.handleInput("\n");
 
-	it("generates a tracking identifier on opt-in", () => {
-		const manager = SettingsManager.inMemory();
-
-		manager.setEnableAnalytics(true);
-
-		expect(manager.getEnableAnalytics()).toBe(true);
-		expect(manager.getTrackingId()).toMatch(/^[0-9a-f-]{36}$/);
-	});
-
-	it("does not generate a tracking identifier on opt-out", () => {
-		const manager = SettingsManager.inMemory();
-
-		manager.setEnableAnalytics(false);
-
-		expect(manager.getEnableAnalytics()).toBe(false);
-		expect(manager.getTrackingId()).toBeUndefined();
-	});
-
-	it("keeps the tracking identifier when toggling analytics", () => {
-		const manager = SettingsManager.inMemory();
-
-		manager.setEnableAnalytics(true);
-		const trackingId = manager.getTrackingId();
-		manager.setEnableAnalytics(false);
-		manager.setEnableAnalytics(true);
-
-		expect(manager.getTrackingId()).toBe(trackingId);
+		expect(results).toEqual([{ theme: "dark" }]);
 	});
 });
