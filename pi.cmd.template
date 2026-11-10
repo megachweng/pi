@@ -1,11 +1,11 @@
 @echo off
-rem Runs pi from this source checkout on Windows.
+rem Runs pi from the bundle built in this checkout on Windows.
 rem Copy this file to pi.cmd in the repository root, set the two paths below, and run pi.cmd from cmd.
-rem Install first with: npm ci --ignore-scripts --omit=dev
+rem Install and build first, and build again after every pull:
+rem   npm ci --ignore-scripts
+rem   npm run build:offline
 setlocal
 set "PI_OFFLINE=1"
 set "PI_RG_PATH=C:\path\to\rg.exe"
 set "PI_FD_PATH=C:\path\to\fd.exe"
-set "R=%~dp0"
-set "U=file:///%R:\=/%packages/coding-agent/src/experimental/source-resolver.ts"
-node --import "%U%" "%R%packages\coding-agent\src\cli.ts" %*
+node "%~dp0packages\coding-agent\dist\bundle\cli.js" %*
