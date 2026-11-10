@@ -96,7 +96,6 @@ import type {
 import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.ts";
 import { configureHttpDispatcher, formatHttpIdleTimeoutMs } from "../../core/http-dispatcher.ts";
 import { type AppKeybinding, KeybindingsManager } from "../../core/keybindings.ts";
-import type { McpHttpServerConfig } from "../../core/mcp-servers.ts";
 import { createCompactionSummaryMessage, createCustomMessage } from "../../core/messages.ts";
 import {
 	defaultModelPerProvider,
@@ -105,9 +104,17 @@ import {
 } from "../../core/model-resolver.ts";
 import { CredentialSynchronizationError } from "../../core/model-runtime.ts";
 import { DefaultPackageManager } from "../../core/package-manager.ts";
-import { RADIUS_MCP_URL, RADIUS_PROVIDER_ID } from "../../core/radius.ts";
+import { compareProviders } from "../../core/preferred-providers.ts";
+import { findMatchingProviders } from "../../core/provider-matching.ts";
+import { RADIUS_PROVIDER_ID } from "../../core/radius.ts";
+import { planRadiusMcpServer } from "../../core/radius-mcp.ts";
 import type { ResourceDiagnostic } from "../../core/resource-loader.ts";
-import { formatMissingSessionCwdPrompt, MissingSessionCwdError } from "../../core/session-cwd.ts";
+import {
+	formatMissingSessionCwdPrompt,
+	getMissingSessionCwdOptions,
+	type MissingSessionCwdChoice,
+	MissingSessionCwdError,
+} from "../../core/session-cwd.ts";
 import {
 	type SessionEntry,
 	SessionManager,
@@ -121,7 +128,7 @@ import { withBuiltInRenderers } from "../../core/tools/renderers/index.ts";
 import type { TruncationResult } from "../../core/tools/truncate.ts";
 import { hasTrustRequiringProjectResources, ProjectTrustStore } from "../../core/trust-manager.ts";
 import { getUsageCostBreakdown } from "../../core/usage-totals.ts";
-import { addMcpServerConfig, loadMcpConfig } from "../../extensions/mcp/config.ts";
+import { addMcpServerConfig } from "../../extensions/mcp/config.ts";
 import { getChangelogPath, getNewEntries, normalizeChangelogLinks, parseChangelog } from "../../utils/changelog.ts";
 import { copyToClipboard, readClipboardFilePaths, readClipboardText } from "../../utils/clipboard.ts";
 import { extensionForImageMimeType, readClipboardImage } from "../../utils/clipboard-image.ts";
@@ -405,7 +412,7 @@ function getLoginProviderCompletionOptions(
 			subscription: provider.subscription,
 		});
 	}
-	return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+	return Array.from(byId.values()).sort(compareProviders);
 }
 
 function getLoginProviderSearchText(provider: LoginProviderCompletionOption): string {
@@ -501,6 +508,8 @@ export class InteractiveMode {
 	private changelogMarkdown: string | undefined = undefined;
 	private extensionChangelogUpdates: ExtensionChangelogUpdate[] = [];
 	private startupNoticesShown = false;
+	/** Last cache-warming notice, extended in place while it is the last chat line. */
+	private cacheWarmingNotice: { component: ThemedText; total: { cost: number }; note: string | undefined } | undefined;
 	private anthropicSubscriptionWarningShown = false;
 
 	// Status line tracking (for mutating immediately-sequential status updates)
@@ -569,6 +578,13 @@ export class InteractiveMode {
 	// Extension dialogs shown in the editor slot (select, confirm, input, editor, inline custom).
 	// The last entry is visible; see pushExtensionDialog().
 	private extensionDialogs: Array<{ component: ExtensionDialogComponent; blocked: BlockedStatus | undefined }> = [];
+	/** Numbers the program status sources of blocking overlays, so closing one keeps the others. */
+	private nextBlockingOverlayId = 0;
+	/**
+	 * Open extension overlays (custom with overlay: true) and the function that removes each, in opening
+	 * order. Reset removes only these, not pi's own overlays.
+	 */
+	private readonly extensionOverlays = new Map<OverlayHandle, () => void>();
 	private extensionTerminalInputSubscriptions = new Set<{
 		handler: (data: string) => { consume?: boolean; data?: string } | undefined;
 		unsubscribe: () => void;
@@ -2294,6 +2310,7 @@ export class InteractiveMode {
 		this.loadedResourcesContainer.clear();
 		this.chatContainer.clear();
 		this.pendingMessagesContainer.clear();
+		this.pendingBashComponents = [];
 		this.compactionQueuedMessages = [];
 		this.streamingComponent = undefined;
 		this.streamingMessage = undefined;
@@ -2552,7 +2569,9 @@ export class InteractiveMode {
 			this.extensionDialogs = [];
 			this.showTopExtensionDialog();
 		}
-		this.ui.hideOverlay();
+		// Reload and session switches replace every extension without calling done(): remove their overlays,
+		// newest first, the same way done() does, but leave the promises pending as for inline dialogs.
+		for (const removeOverlay of [...this.extensionOverlays.values()].reverse()) removeOverlay();
 		this.clearExtensionTerminalInputListeners();
 		this.setExtensionFooter(undefined);
 		this.setExtensionHeader(undefined);
@@ -2857,12 +2876,15 @@ export class InteractiveMode {
 		return result === "Yes";
 	}
 
-	private async promptForMissingSessionCwd(error: MissingSessionCwdError): Promise<string | undefined> {
-		const confirmed = await this.showExtensionConfirm(
-			"Session cwd not found",
+	private async promptForMissingSessionCwd(
+		error: MissingSessionCwdError,
+	): Promise<MissingSessionCwdChoice | undefined> {
+		const options = getMissingSessionCwdOptions(error.issue);
+		const label = await this.showExtensionSelector(
 			formatMissingSessionCwdPrompt(error.issue),
+			options.map((option) => option.label),
 		);
-		return confirmed ? error.issue.fallbackCwd : undefined;
+		return options.find((option) => option.label === label)?.value;
 	}
 
 	/**
@@ -3041,6 +3063,9 @@ export class InteractiveMode {
 		return new Promise((resolve, reject) => {
 			let component: ExtensionDialogComponent | undefined;
 			let overlayHandle: OverlayHandle | undefined;
+			// An overlay stays blocked until its interaction ends, also while setHidden() hides it.
+			const overlayStatusSource =
+				isOverlay && options?.blocked ? `extension-overlay:${this.nextBlockingOverlayId++}` : undefined;
 			let closed = false;
 
 			const restoreEditor = () => {
@@ -3049,18 +3074,33 @@ export class InteractiveMode {
 				this.ui.requestRender();
 			};
 
-			const close = (result: T) => {
-				if (closed) return;
-				closed = true;
-				// Remove this overlay, not the topmost one: another overlay may have opened above it.
-				if (isOverlay) overlayHandle?.hide();
-				else restoreEditor();
-				// Note: both branches above already call requestRender
-				resolve(result);
+			const disposeComponent = () => {
 				try {
 					component?.dispose?.();
 				} catch {
 					/* ignore dispose errors */
+				}
+			};
+
+			// Shared by done() and resetExtensionUI(). Removing the map entry first makes a second call a no-op.
+			const removeOverlay = () => {
+				if (!overlayHandle || !this.extensionOverlays.delete(overlayHandle)) return;
+				// Remove this overlay, not the topmost one: another overlay may have opened above it.
+				overlayHandle.hide();
+				if (overlayStatusSource) this.programStatus.setBlocked(overlayStatusSource, undefined);
+				disposeComponent();
+			};
+
+			const close = (result: T) => {
+				if (closed) return;
+				closed = true;
+				if (isOverlay) {
+					removeOverlay();
+					resolve(result);
+				} else {
+					restoreEditor();
+					resolve(result);
+					disposeComponent();
 				}
 			};
 
@@ -3083,6 +3123,8 @@ export class InteractiveMode {
 							return w ? { width: w } : undefined;
 						};
 						overlayHandle = this.ui.showOverlay(c, resolveOptions());
+						this.extensionOverlays.set(overlayHandle, removeOverlay);
+						if (overlayStatusSource) this.programStatus.setBlocked(overlayStatusSource, options?.blocked);
 						// Expose handle to caller for visibility control
 						options?.onHandle?.(overlayHandle);
 					} else {
@@ -3716,6 +3758,9 @@ export class InteractiveMode {
 				break;
 
 			case "agent_settled":
+				// The session records deferred user bash results when the run settles; show them there too.
+				this.flushPendingBashComponents();
+				this.ui.requestRender();
 				await this.checkShutdownRequested();
 				break;
 
@@ -4192,9 +4237,18 @@ export class InteractiveMode {
 
 	private addCacheWarmingUsage(entry: UsageEntry): void {
 		if (!this.settingsManager.getShowCacheMissNotices()) return;
+		// Back-to-back warms collapse into one line with the cumulative cost.
+		const previous = this.cacheWarmingNotice;
+		if (previous && this.chatContainer.children.at(-1) === previous.component && previous.note === entry.note) {
+			previous.total.cost += entry.usage.cost.total;
+			previous.component.invalidate();
+			return;
+		}
+		const total = { cost: entry.usage.cost.total };
+		const component = new ThemedText(() => theme.fg("dim", formatCacheWarmingUsage(total.cost, entry.note)), 1, 0);
+		this.cacheWarmingNotice = { component, total, note: entry.note };
 		this.chatContainer.addChild(new Spacer(1));
-		const usage = formatCacheWarmingUsage(entry);
-		this.chatContainer.addChild(new ThemedText(() => theme.fg("dim", usage), 1, 0));
+		this.chatContainer.addChild(component);
 	}
 
 	/**
@@ -4649,7 +4703,7 @@ export class InteractiveMode {
 		if (isExpandable(activeHeader)) {
 			activeHeader.setExpanded(expanded);
 		}
-		for (const container of [this.loadedResourcesContainer, this.chatContainer]) {
+		for (const container of [this.loadedResourcesContainer, this.chatContainer, this.pendingMessagesContainer]) {
 			for (const child of container.children) {
 				if (isExpandable(child)) {
 					child.setExpanded(expanded);
@@ -4805,6 +4859,10 @@ export class InteractiveMode {
 
 	private updatePendingMessagesDisplay(): void {
 		this.pendingMessagesContainer.clear();
+		// User bash output shown while the agent works lives here until it moves to the chat.
+		for (const component of this.pendingBashComponents) {
+			this.pendingMessagesContainer.addChild(component);
+		}
 		const { steering: steeringMessages, followUp: followUpMessages } = this.getAllQueuedMessages();
 		if (steeringMessages.length > 0 || followUpMessages.length > 0) {
 			this.pendingMessagesContainer.addChild(new Spacer(1));
@@ -5848,24 +5906,46 @@ export class InteractiveMode {
 			return result;
 		} catch (error: unknown) {
 			if (error instanceof MissingSessionCwdError) {
-				const selectedCwd = await this.promptForMissingSessionCwd(error);
-				if (!selectedCwd) {
-					this.showStatus("Resume cancelled");
-					return { cancelled: true };
+				switch (await this.promptForMissingSessionCwd(error)) {
+					case "continue": {
+						const result = await this.runtimeHost.switchSession(sessionPath, {
+							cwdOverride: error.issue.fallbackCwd,
+							withSession: options?.withSession,
+							projectTrustContextFactory: (cwd) => this.createProjectTrustContext(cwd),
+						});
+						if (!result.cancelled) this.showStatus(`Resumed session in ${error.issue.fallbackCwd}`);
+						return result;
+					}
+					case "fork":
+						return this.switchToForkedSession(sessionPath, error.issue.fallbackCwd, options);
+					case undefined:
+						this.showStatus("Resume cancelled");
+						return { cancelled: true };
 				}
-				const result = await this.runtimeHost.switchSession(sessionPath, {
-					cwdOverride: selectedCwd,
-					withSession: options?.withSession,
-					projectTrustContextFactory: (cwd) => this.createProjectTrustContext(cwd),
-				});
-				if (result.cancelled) {
-					return result;
-				}
-				this.showStatus("Resumed session in current cwd");
-				return result;
 			}
 			return this.handleFatalRuntimeError("Failed to resume session", error);
 		}
+	}
+
+	/** Fork a session whose stored cwd is gone into `cwd` and switch to the fork, like `--session <id>` from another project (#11060). */
+	private async switchToForkedSession(
+		sourcePath: string,
+		cwd: string,
+		options?: Parameters<ExtensionCommandContext["switchSession"]>[1],
+	): Promise<{ cancelled: boolean }> {
+		const fork = SessionManager.forkFrom(sourcePath, cwd, this.sessionManager.getSessionDir());
+		const forkPath = fork.getSessionFile()!;
+		const result = await this.runtimeHost.switchSession(forkPath, {
+			withSession: options?.withSession,
+			projectTrustContextFactory: (cwd) => this.createProjectTrustContext(cwd),
+		});
+		if (result.cancelled) {
+			// An extension vetoed the switch; drop the fork so cancelling leaves no copy behind.
+			fs.rmSync(forkPath, { force: true });
+			return result;
+		}
+		this.showStatus(`Forked into new session ${fork.getSessionId()} in ${cwd}`);
+		return result;
 	}
 
 	private getLoginProviderOptions(authType?: "oauth" | "api_key"): AuthSelectorProvider[] {
@@ -5900,7 +5980,8 @@ export class InteractiveMode {
 				});
 			}
 		}
-		return options.sort((a, b) => a.name.localeCompare(b.name));
+		// The sort is stable, so a provider's account option stays above its API key option.
+		return options.sort(compareProviders);
 	}
 
 	private async getLogoutProviderOptions(): Promise<AuthSelectorProvider[]> {
@@ -5915,20 +5996,7 @@ export class InteractiveMode {
 					subscription: provider?.auth.oauth?.isSubscription === true,
 				};
 			})
-			.sort((a, b) => a.name.localeCompare(b.name));
-	}
-
-	private findLoginProviderOptions(providerRef: string): AuthSelectorProvider[] {
-		const normalizedProviderRef = providerRef.trim().toLowerCase();
-		if (!normalizedProviderRef) {
-			return [];
-		}
-
-		return this.getLoginProviderOptions().filter(
-			(provider) =>
-				provider.id.toLowerCase() === normalizedProviderRef ||
-				provider.name.toLowerCase() === normalizedProviderRef,
-		);
+			.sort(compareProviders);
 	}
 
 	private async handleLoginCommand(providerRef?: string): Promise<void> {
@@ -5937,7 +6005,7 @@ export class InteractiveMode {
 			return;
 		}
 
-		const providerOptions = this.findLoginProviderOptions(providerRef);
+		const providerOptions = findMatchingProviders(this.getLoginProviderOptions(), providerRef);
 		if (providerOptions.length === 1) {
 			await this.startProviderLogin(providerOptions[0]!);
 			return;
@@ -6081,8 +6149,9 @@ export class InteractiveMode {
 					}
 				},
 				initialSearchInput,
+				this.ui,
 			);
-			return { component: selector, focus: selector };
+			return { component: selector, focus: selector, dispose: () => selector.dispose() };
 		});
 	}
 
@@ -6141,8 +6210,10 @@ export class InteractiveMode {
 					done();
 					this.ui.requestRender();
 				},
+				undefined,
+				this.ui,
 			);
-			return { component: selector, focus: selector };
+			return { component: selector, focus: selector, dispose: () => selector.dispose() };
 		});
 	}
 
@@ -6458,26 +6529,9 @@ export class InteractiveMode {
 	 * when missing. Nothing is asked when a global server already uses this login.
 	 */
 	private offerRadiusMcpServer(providerId: string, providerName: string): void {
-		const mcpPath = path.join(getAgentDir(), "mcp.json");
-		const normalizeUrl = (url: string) => url.replace(/\/+$/u, "");
-		const { servers } = loadMcpConfig({
-			agentDir: getAgentDir(),
-			cwd: this.sessionManager.getCwd(),
-			projectTrusted: false,
-		});
-		const existing = servers.find(
-			(server) => "url" in server.config && normalizeUrl(server.config.url) === normalizeUrl(RADIUS_MCP_URL),
-		);
-		if (existing && "url" in existing.config && existing.config.auth?.provider === providerId) return;
-
-		let name = existing?.name ?? "radius";
-		if (!existing && servers.some((server) => server.name === name)) name = "radius-mcp";
-		const config: McpHttpServerConfig =
-			existing && "url" in existing.config
-				? { ...existing.config, auth: { provider: providerId } }
-				: { url: RADIUS_MCP_URL, auth: { provider: providerId } };
-		// `auth` replaces the MCP OAuth sign-in.
-		delete config.oauth;
+		const plan = planRadiusMcpServer(providerId, getAgentDir(), this.sessionManager.getCwd());
+		if (!plan) return;
+		const { mcpPath, name, config } = plan;
 
 		this.showSelector((done) => {
 			const selector = new ExtensionSelectorComponent(
@@ -6670,18 +6724,21 @@ export class InteractiveMode {
 			this.showStatus(`Session imported from: ${inputPath}`);
 		} catch (error: unknown) {
 			if (error instanceof MissingSessionCwdError) {
-				const selectedCwd = await this.promptForMissingSessionCwd(error);
-				if (!selectedCwd) {
-					this.showStatus("Import cancelled");
-					return;
+				switch (await this.promptForMissingSessionCwd(error)) {
+					case "continue": {
+						const result = await this.runtimeHost.importFromJsonl(inputPath, error.issue.fallbackCwd);
+						this.showStatus(result.cancelled ? "Import cancelled" : `Session imported from: ${inputPath}`);
+						return;
+					}
+					case "fork": {
+						const result = await this.switchToForkedSession(inputPath, error.issue.fallbackCwd);
+						if (result.cancelled) this.showStatus("Import cancelled");
+						return;
+					}
+					case undefined:
+						this.showStatus("Import cancelled");
+						return;
 				}
-				const result = await this.runtimeHost.importFromJsonl(inputPath, selectedCwd);
-				if (result.cancelled) {
-					this.showStatus("Import cancelled");
-					return;
-				}
-				this.showStatus(`Session imported from: ${inputPath}`);
-				return;
 			}
 			if (error instanceof SessionImportFileNotFoundError) {
 				this.showError(`Failed to import session: ${error.message}`);
@@ -7079,6 +7136,7 @@ export class InteractiveMode {
 
 			// Create UI component for display
 			this.bashComponent = new BashExecutionComponent(command, this.ui, excludeFromContext, this.outputPad);
+			this.bashComponent.setExpanded(this.toolOutputExpanded);
 			if (this.session.isStreaming) {
 				this.pendingMessagesContainer.addChild(this.bashComponent);
 				this.pendingBashComponents.push(this.bashComponent);
@@ -7107,6 +7165,7 @@ export class InteractiveMode {
 		// Normal execution path (possibly with custom operations)
 		const isDeferred = this.session.isStreaming;
 		this.bashComponent = new BashExecutionComponent(command, this.ui, excludeFromContext, this.outputPad);
+		this.bashComponent.setExpanded(this.toolOutputExpanded);
 
 		if (isDeferred) {
 			// Show in pending area when agent is streaming

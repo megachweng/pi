@@ -14,6 +14,7 @@ import type { JsonValue } from "../../../src/json.ts";
 import { createPlugins, type Plugins } from "../../../src/node/plugins/index.ts";
 import { createWorkers, type Workers, type WorkersError } from "../../../src/node/workers/index.ts";
 import { Session, type WorkerBehaviour } from "../fixtures/workers/control.ts";
+import { settleFileEvents } from "../plugins/support.ts";
 
 /** The server's own kind. */
 export const Server = hostKind("server");
@@ -32,7 +33,8 @@ export type TestPrincipal =
 	| { readonly kind: "worker"; readonly id: string }
 	| { readonly kind: "guest"; readonly id: string };
 
-const ENTRY = fileURLToPath(new URL("../fixtures/workers/worker.ts", import.meta.url));
+/** The fixture worker's entry. */
+export const ENTRY = fileURLToPath(new URL("../fixtures/workers/worker.ts", import.meta.url));
 
 const PLUGINS = fileURLToPath(new URL("../fixtures/workers/plugins/", import.meta.url));
 
@@ -67,6 +69,7 @@ export type Fleet = {
 /** Starts a server routing `Session` to fixture workers; `options` override the workers' defaults. */
 export async function fleet(
 	options: {
+		readonly entry?: string;
 		readonly idleMs?: number;
 		readonly heartbeat?: { readonly ping?: number; readonly close?: number };
 		readonly start?: (address: { readonly key: string }, context: Context) => Promise<JsonValue>;
@@ -76,6 +79,7 @@ export async function fleet(
 ): Promise<Fleet> {
 	const root = await mkdtemp(join(tmpdir(), "chord-workers-"));
 	await cp(PLUGINS, root, { recursive: true });
+	await settleFileEvents();
 	const errors: WorkersError[] = [];
 	const hostErrors: HostError[] = [];
 	const starts: string[] = [];
@@ -97,7 +101,7 @@ export async function fleet(
 		Session,
 		{
 			kind: "worker",
-			entry: ENTRY,
+			entry: options.entry ?? ENTRY,
 			execArgv: ["--conditions=source", "--experimental-strip-types", "--no-warnings"],
 			authorize: options.authorize ?? (() => true),
 			principal: options.principal ?? ((address) => ({ kind: "worker", id: address.params.id }) as const),
@@ -119,6 +123,7 @@ export async function fleet(
 	await server.load([], context);
 	// The worker kind's set made now (discovery, builds): the watcher marks edits from then on.
 	await plugins.scripts("worker", context);
+	await settleFileEvents();
 	const close = async () => {
 		await workers.close(context);
 		await server.close(context);
@@ -135,7 +140,10 @@ export async function fleet(
 		starts,
 		output,
 		behaviours,
-		label: (label) => writeFile(join(root, "notes", "label.ts"), `export const label = ${JSON.stringify(label)};\n`),
+		label: async (label) => {
+			await writeFile(join(root, "notes", "label.ts"), `export const label = ${JSON.stringify(label)};\n`);
+			await settleFileEvents();
+		},
 	};
 }
 

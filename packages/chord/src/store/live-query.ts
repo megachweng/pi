@@ -92,6 +92,16 @@ export class LiveQueries {
 	on(table: string): ReadonlySet<LiveQuery> | undefined {
 		return this.#byTable.get(table);
 	}
+
+	/** The live queries over tables with a `host(...)` column of host kind `kind`: what a host data change re-runs. */
+	onHostKind(kind: string): LiveQuery[] {
+		const found: LiveQuery[] = [];
+		for (const queries of this.#byTable.values()) {
+			for (const query of queries)
+				if (query.handle.definition.hostColumn?.host.kind.kind === kind) found.push(query);
+		}
+		return found;
+	}
 }
 
 /**
@@ -130,6 +140,8 @@ export class QueryRefresh {
 	}
 
 	async #rerun(step: Step): Promise<readonly StoreWrite[]> {
+		// A grouped commit that rolled back applies again alone (store.ts): only the last application's runs count.
+		this.#runs.length = 0;
 		for (const query of this.#queries) this.#runs.push(await query.rerun(step, this.#context));
 		return NO_WRITES;
 	}
@@ -209,7 +221,10 @@ export class LiveQuery extends Source {
 		this.#state = { kind: "rows", value: rows.value };
 	}
 
-	/** A run inside the commit step `step`, after its writes: the rows, or the failure; it never throws. */
+	/**
+	 * A run inside the commit step `step`, after its writes (its object's commit, or a host data change of its table):
+	 * the rows, or the failure; it never throws.
+	 */
 	async rerun(step: Step, context: Context): Promise<QueryRun> {
 		try {
 			this.#count(context);
