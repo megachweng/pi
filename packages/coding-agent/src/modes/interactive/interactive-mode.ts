@@ -5006,6 +5006,7 @@ export class InteractiveMode {
 					autoResizeImages: this.settingsManager.getImageAutoResize(),
 					blockImages: this.settingsManager.getBlockImages(),
 					enableSkillCommands: this.settingsManager.getEnableSkillCommands(),
+					enableSkillAutoInvocation: this.settingsManager.getEnableSkillAutoInvocation(),
 					steeringMode: this.session.steeringMode,
 					followUpMode: this.session.followUpMode,
 					transport: this.settingsManager.getTransport(),
@@ -5068,6 +5069,9 @@ export class InteractiveMode {
 					onEnableSkillCommandsChange: (enabled) => {
 						this.settingsManager.setEnableSkillCommands(enabled);
 						this.setupAutocompleteProvider();
+					},
+					onEnableSkillAutoInvocationChange: (enabled) => {
+						this.session.setSkillAutoInvocation(enabled);
 					},
 					onSteeringModeChange: (mode) => {
 						this.session.setSteeringMode(mode);

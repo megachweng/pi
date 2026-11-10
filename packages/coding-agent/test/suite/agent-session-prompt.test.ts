@@ -14,8 +14,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BeforeAgentStartEvent, ExtensionAPI, InputEvent } from "../../src/core/extensions/index.ts";
 import type { PromptTemplate } from "../../src/core/prompt-templates.ts";
 import { createSyntheticSourceInfo } from "../../src/core/source-info.ts";
-import { createTestResourceLoader } from "../utilities.ts";
-import { createHarness, getMessageText, type Harness } from "./harness.ts";
+import { createTestExtensionsResult, createTestResourceLoader } from "../utilities.ts";
+import { createHarness, getMessageText, type Harness, type HarnessOptions } from "./harness.ts";
 
 const processImage = vi.hoisted(() =>
 	vi.fn(async (_bytes: Uint8Array, mimeType: string) => ({
@@ -248,6 +248,110 @@ describe("AgentSession prompt characterization", () => {
 		expect(expandedPrompt).toContain('<skill name="test" location="');
 		expect(expandedPrompt).toContain("Use the skill body.");
 		expect(expandedPrompt).toContain("explain this");
+	});
+
+	describe("skill auto-invocation", () => {
+		const createSkillHarness = async (options: HarnessOptions = {}): Promise<Harness> => {
+			const tempDir = join(tmpdir(), `pi-skill-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+			mkdirSync(tempDir, { recursive: true });
+			tempDirs.push(tempDir);
+			const skillPath = join(tempDir, "test-skill.md");
+			writeFileSync(skillPath, "# Test Skill\n\nUse the skill body.");
+			// The harness ignores extensionFactories when given a resource loader, so load them here.
+			const extensionsResult = options.extensionFactories
+				? await createTestExtensionsResult(options.extensionFactories, tempDir)
+				: undefined;
+			const harness = await createHarness({
+				settings: options.settings,
+				resourceLoader: {
+					...createTestResourceLoader(extensionsResult ? { extensionsResult } : undefined),
+					getSkills: () => ({
+						skills: [
+							{
+								name: "test",
+								description: "Test skill",
+								filePath: skillPath,
+								disableModelInvocation: false,
+								baseDir: tempDir,
+								sourceInfo: createSyntheticSourceInfo(skillPath, {
+									source: "local",
+									scope: "project",
+									origin: "top-level",
+									baseDir: tempDir,
+								}),
+							},
+						],
+						diagnostics: [],
+					}),
+				},
+			});
+			harnesses.push(harness);
+			return harness;
+		};
+
+		it("lists skills in the system prompt by default", async () => {
+			const harness = await createSkillHarness();
+			expect(harness.session.systemPrompt).toContain("<available_skills>");
+		});
+
+		it("leaves skills out of the prompt when off, and /skill:name still expands them", async () => {
+			const harness = await createSkillHarness({ settings: { enableSkillAutoInvocation: false } });
+			let systemPrompt = "";
+			let userText = "";
+			harness.setResponses([
+				(context) => {
+					systemPrompt = getCurrentSystemPrompt(context.messages);
+					const user = context.messages.find((message) => message.role === "user");
+					userText = user ? getMessageText(user) : "";
+					return fauxAssistantMessage("ok");
+				},
+			]);
+
+			await harness.session.prompt("/skill:test explain this");
+
+			expect(systemPrompt).not.toContain("<available_skills>");
+			expect(userText).toContain("Use the skill body.");
+		});
+
+		it("removes skills from the next run when turned off mid-session, and saves the setting", async () => {
+			const harness = await createSkillHarness();
+			const prompts: string[] = [];
+			const response = (context: TranscriptContext) => {
+				prompts.push(getCurrentSystemPrompt(context.messages));
+				return fauxAssistantMessage("ok");
+			};
+			harness.setResponses([response, response, response]);
+
+			await harness.session.prompt("first");
+			harness.session.setSkillAutoInvocation(false);
+			await harness.session.prompt("second");
+			harness.session.setSkillAutoInvocation(true);
+			await harness.session.prompt("third");
+
+			expect(prompts[0]).toContain("<available_skills>");
+			expect(prompts[1]).not.toContain("<available_skills>");
+			expect(prompts[2]).toContain("<available_skills>");
+			expect(harness.settingsManager.getEnableSkillAutoInvocation()).toBe(true);
+		});
+
+		it("keeps skills in the options extensions receive when off", async () => {
+			let received: BeforeAgentStartEvent["systemPromptOptions"]["skills"] = [];
+			const harness = await createSkillHarness({
+				settings: { enableSkillAutoInvocation: false },
+				extensionFactories: [
+					(pi) => {
+						pi.on("before_agent_start", (event) => {
+							received = event.systemPromptOptions.skills;
+						});
+					},
+				],
+			});
+			harness.setResponses([fauxAssistantMessage("ok")]);
+
+			await harness.session.prompt("hello");
+
+			expect(received.map((skill) => [skill.name, skill.disableModelInvocation])).toEqual([["test", true]]);
+		});
 	});
 
 	it("expands prompt templates before sending the prompt", async () => {

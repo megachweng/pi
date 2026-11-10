@@ -67,6 +67,7 @@ export interface SettingsConfig {
 	autoResizeImages: boolean;
 	blockImages: boolean;
 	enableSkillCommands: boolean;
+	enableSkillAutoInvocation: boolean;
 	steeringMode: "all" | "one-at-a-time";
 	followUpMode: "all" | "one-at-a-time";
 	transport: Transport;
@@ -107,6 +108,7 @@ export interface SettingsCallbacks {
 	onAutoResizeImagesChange: (enabled: boolean) => void;
 	onBlockImagesChange: (blocked: boolean) => void;
 	onEnableSkillCommandsChange: (enabled: boolean) => void;
+	onEnableSkillAutoInvocationChange: (enabled: boolean) => void;
 	onSteeringModeChange: (mode: "all" | "one-at-a-time") => void;
 	onFollowUpModeChange: (mode: "all" | "one-at-a-time") => void;
 	onTransportChange: (transport: Transport) => void;
@@ -795,9 +797,19 @@ export class SettingsSelectorComponent extends Container {
 			values: ["true", "false"],
 		});
 
-		// Hardware cursor toggle (insert after skill-commands)
+		// Skill auto-invocation toggle (insert after skill-commands)
 		const skillCommandsIndex = items.findIndex((item) => item.id === "skill-commands");
 		items.splice(skillCommandsIndex + 1, 0, {
+			id: "skill-auto-invocation",
+			label: "Skill auto-invocation",
+			description: "Let the model load skills on its own. When off, skills run only through /skill:name",
+			currentValue: config.enableSkillAutoInvocation ? "true" : "false",
+			values: ["true", "false"],
+		});
+
+		// Hardware cursor toggle (insert after skill-auto-invocation)
+		const skillAutoInvocationIndex = items.findIndex((item) => item.id === "skill-auto-invocation");
+		items.splice(skillAutoInvocationIndex + 1, 0, {
 			id: "show-hardware-cursor",
 			label: "Show hardware cursor",
 			description: "Use the terminal cursor instead of Pi's drawn cursor",
@@ -881,6 +893,9 @@ export class SettingsSelectorComponent extends Container {
 						break;
 					case "skill-commands":
 						callbacks.onEnableSkillCommandsChange(newValue === "true");
+						break;
+					case "skill-auto-invocation":
+						callbacks.onEnableSkillAutoInvocationChange(newValue === "true");
 						break;
 					case "steering-mode":
 						callbacks.onSteeringModeChange(newValue as "all" | "one-at-a-time");

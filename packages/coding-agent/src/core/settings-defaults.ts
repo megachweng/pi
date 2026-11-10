@@ -29,6 +29,7 @@ export const SETTINGS_DEFAULTS = {
 	defaultProjectTrust: "ask",
 	collapseChangelog: false,
 	enableSkillCommands: true,
+	enableSkillAutoInvocation: true,
 	terminal: {
 		showImages: true,
 		imageWidthCells: 60,

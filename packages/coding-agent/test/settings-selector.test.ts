@@ -64,6 +64,27 @@ describe("SettingsSelectorComponent", () => {
 		expect(onWheelScrollLinesChange.mock.calls.flat()).toEqual([10, "auto", 1]);
 	});
 
+	it("toggles skill auto-invocation", () => {
+		const onChange = vi.fn();
+		const config = {
+			enableSkillAutoInvocation: true,
+			warnings: {},
+			defaultModel: "not set",
+			availableDefaultModels: [],
+			availableThinkingLevels: [],
+			modelThinkingLevels: {},
+			availableThemes: [],
+		} as unknown as SettingsConfig;
+		const callbacks = { onEnableSkillAutoInvocationChange: onChange } as unknown as SettingsCallbacks;
+		const list = new SettingsSelectorComponent(config, callbacks).getSettingsList();
+
+		list.selectItem("skill-auto-invocation");
+		list.handleInput("\r");
+		list.handleInput("\r");
+
+		expect(onChange.mock.calls.flat()).toEqual([false, true]);
+	});
+
 	it("keeps the configured fixed theme marked while browsing", () => {
 		const config = {
 			defaultModel: "not set",

@@ -313,6 +313,13 @@ export const SettingsSchema = Type.Object(
 				default: SETTINGS_DEFAULTS.enableSkillCommands,
 			}),
 		),
+		enableSkillAutoInvocation: Type.Optional(
+			Type.Boolean({
+				description:
+					"List skills in the system prompt so the model can load them on its own. When false, skills run only through /skill:name.",
+				default: SETTINGS_DEFAULTS.enableSkillAutoInvocation,
+			}),
+		),
 		terminal: Type.Optional(TerminalSettingsSchema),
 		images: Type.Optional(ImageSettingsSchema),
 		enabledModels: Type.Optional(

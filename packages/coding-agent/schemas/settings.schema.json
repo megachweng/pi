@@ -370,6 +370,11 @@
       "description": "Register skills as /skill:name commands.",
       "default": true
     },
+    "enableSkillAutoInvocation": {
+      "type": "boolean",
+      "description": "List skills in the system prompt so the model can load them on its own. When false, skills run only through /skill:name.",
+      "default": true
+    },
     "terminal": {
       "type": "object",
       "properties": {

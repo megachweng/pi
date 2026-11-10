@@ -1763,7 +1763,10 @@ export class AgentSession {
 
 		this._baseSystemPromptOptions = normalizeBuildSystemPromptOptions({
 			cwd: this._cwd,
-			skills: loadedSkills,
+			// Flagged rather than dropped: extensions still see every loaded skill in the prompt options.
+			skills: this.settingsManager.getEnableSkillAutoInvocation()
+				? loadedSkills
+				: loadedSkills.map((skill) => ({ ...skill, disableModelInvocation: true })),
 			contextFiles: loadedContextFiles,
 			customPrompt: loaderSystemPrompt,
 			appendSystemPrompt,
@@ -2817,6 +2820,15 @@ export class AgentSession {
 	private syncQueueModesFromSettings(): void {
 		this.agent.steeringMode = this.settingsManager.getSteeringMode();
 		this.agent.followUpMode = this.settingsManager.getFollowUpMode();
+	}
+
+	/**
+	 * Set whether the model may load skills on its own. /skill:name works either way.
+	 * Saves to settings. Takes effect on the next run.
+	 */
+	setSkillAutoInvocation(enabled: boolean): void {
+		this.settingsManager.setEnableSkillAutoInvocation(enabled);
+		this._rebuildSystemPrompt(this.getActiveToolNames());
 	}
 
 	/**

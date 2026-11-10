@@ -1147,6 +1147,16 @@ export class SettingsManager {
 		this.save();
 	}
 
+	getEnableSkillAutoInvocation(): boolean {
+		return this.settings.enableSkillAutoInvocation ?? SETTINGS_DEFAULTS.enableSkillAutoInvocation;
+	}
+
+	setEnableSkillAutoInvocation(enabled: boolean): void {
+		this.globalSettings.enableSkillAutoInvocation = enabled;
+		this.markModified("enableSkillAutoInvocation");
+		this.save();
+	}
+
 	getThinkingBudgets(): ThinkingBudgetsSettings | undefined {
 		return this.settings.thinkingBudgets;
 	}
