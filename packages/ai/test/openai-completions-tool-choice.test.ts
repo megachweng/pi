@@ -14,7 +14,8 @@ const mockState = vi.hoisted(() => ({
 					prompt_tokens: number;
 					completion_tokens: number;
 					prompt_tokens_details: { cached_tokens: number; cache_write_tokens?: number };
-					completion_tokens_details: { reasoning_tokens: number };
+					completion_tokens_details?: { reasoning_tokens: number };
+					reasoning_tokens?: number;
 				};
 		  }>
 		| undefined,
@@ -101,6 +102,26 @@ async function captureSimpleParams(
 	).result();
 
 	return (payload ?? mockState.lastParams) as CapturedParams;
+}
+
+async function firstInstructionRole(model: Model<"openai-completions">): Promise<string | undefined> {
+	let payload: unknown;
+
+	await streamSimple(
+		model,
+		{
+			systemPrompt: "Follow instructions.",
+			messages: [{ role: "user", content: "Hi", timestamp: Date.now() }],
+		},
+		{
+			apiKey: "test",
+			onPayload: (params: unknown) => {
+				payload = params;
+			},
+		},
+	).result();
+
+	return (payload as { messages?: Array<{ role?: string }> }).messages?.[0]?.role;
 }
 
 describe("openai-completions tool_choice", () => {
@@ -293,34 +314,6 @@ describe("openai-completions tool_choice", () => {
 		const functionTool = params.tools?.[0]?.function;
 		expect(functionTool?.strict).toBe(true);
 		expect(functionTool?.parameters?.required).toEqual(["required", "optional"]);
-	});
-
-	it("maps Groq Qwen reasoning levels to default reasoning_effort", async () => {
-		const model = getModel("groq", "qwen/qwen3.6-27b")!;
-		let payload: unknown;
-
-		await streamSimple(
-			model,
-			{
-				messages: [
-					{
-						role: "user",
-						content: "Hi",
-						timestamp: Date.now(),
-					},
-				],
-			},
-			{
-				apiKey: "test",
-				reasoning: "medium",
-				onPayload: (params: unknown) => {
-					payload = params;
-				},
-			},
-		).result();
-
-		const params = (payload ?? mockState.lastParams) as { reasoning_effort?: string };
-		expect(params.reasoning_effort).toBe("default");
 	});
 
 	it("keeps normal reasoning_effort for groq models without compat mapping", async () => {
@@ -1153,24 +1146,30 @@ describe("openai-completions tool_choice", () => {
 	it("keeps developer messages for OpenAI reasoning model instructions", async () => {
 		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-5.5")!;
 		const model = { ...baseModel, api: "openai-completions" } as const;
-		let payload: unknown;
 
-		await streamSimple(
-			model,
-			{
-				systemPrompt: "Follow instructions.",
-				messages: [{ role: "user", content: "Hi", timestamp: Date.now() }],
-			},
-			{
-				apiKey: "test",
-				onPayload: (params: unknown) => {
-					payload = params;
-				},
-			},
-		).result();
+		expect(await firstInstructionRole(model)).toBe("developer");
+	});
 
-		const params = payload as { messages?: Array<{ role?: string }> };
-		expect(params.messages?.[0]?.role).toBe("developer");
+	it("uses system messages for reasoning model instructions on other OpenAI-compatible hosts", async () => {
+		// #10741: Groq's Qwen chat template rejects the developer role.
+		const groqQwen = getModel("groq", "qwen/qwen3.8-27b")!;
+		const customHost = { ...localOpenAICompletionsModel, id: "qwen3.8-27b", name: "Qwen3.8 27B" };
+		const azureBaseUrl = "https://my-resource.openai.azure.com/openai/v1";
+		// The built-in model has no baseUrl; it is resolved from AZURE_* variables at runtime.
+		const azureDeepSeek = { ...getModel("azure", "deepseek-v4-pro")!, baseUrl: azureBaseUrl };
+		const azureHost = {
+			...localOpenAICompletionsModel,
+			id: "gpt-5.5",
+			name: "GPT-5.5",
+			provider: "my-azure",
+			baseUrl: azureBaseUrl,
+		};
+
+		for (const model of [groqQwen, customHost, azureDeepSeek, azureHost]) {
+			expect(model.api).toBe("openai-completions");
+			expect(model.reasoning).toBe(true);
+			expect(await firstInstructionRole(model)).toBe("system");
+		}
 	});
 
 	it("stores Xiaomi MiMo reasoning replay compat in built-in metadata", () => {
@@ -1197,7 +1196,6 @@ describe("openai-completions tool_choice", () => {
 			const model = getModel(provider, "qwen3.7-max")!;
 			expect(model.compat?.thinkingFormat).toBe("qwen");
 			expect(model.compat?.requiresReasoningContentOnAssistantMessages).toBeUndefined();
-			expect(model.compat?.supportsDeveloperRole).toBe(false);
 			expect(model.compat?.supportsStore).toBe(false);
 		}
 	});
@@ -1710,6 +1708,52 @@ describe("openai-completions tool_choice", () => {
 		expect(response.usage.totalTokens).toBe(105);
 	});
 
+	// #12019
+	it("reads top-level reasoning_tokens when completion_tokens_details has none", async () => {
+		mockState.chunks = [
+			{
+				id: "chatcmpl-copilot-reasoning",
+				choices: [{ delta: { content: "OK" }, finish_reason: null }],
+			},
+			{
+				id: "chatcmpl-copilot-reasoning",
+				choices: [{ delta: {}, finish_reason: "stop" }],
+				usage: {
+					prompt_tokens: 10,
+					completion_tokens: 40,
+					prompt_tokens_details: { cached_tokens: 0 },
+					reasoning_tokens: 30,
+				},
+			},
+		];
+
+		const model = getModel("github-copilot", "gemini-4-argon")!;
+		const response = await streamSimple(
+			model,
+			{
+				messages: [
+					{
+						role: "user",
+						content: "Reply with exactly OK",
+						timestamp: Date.now(),
+					},
+				],
+			},
+			{ apiKey: "test" },
+		).result();
+
+		expect(response.usage.reasoning).toBe(30);
+		expect(response.usage.output).toBe(40);
+	});
+
+	// #12019
+	it("sends reasoning_effort for GitHub Copilot completions models with effort levels", async () => {
+		const model = getModel("github-copilot", "gemini-4-argon")!;
+
+		expect((await captureSimpleParams(model, "low")).reasoning_effort).toBe("low");
+		expect((await captureSimpleParams(model, "high")).reasoning_effort).toBe("high");
+	});
+
 	it("uses OpenRouter reasoning object instead of reasoning_effort", async () => {
 		const model = {
 			...localOpenAICompletionsModel,
@@ -1826,7 +1870,6 @@ describe("openai-completions tool_choice", () => {
 
 		expect(model.compat).toMatchObject({
 			supportsStore: false,
-			supportsDeveloperRole: false,
 			supportsReasoningEffort: false,
 			maxTokensField: "max_tokens",
 			thinkingFormat: "ant-ling",
