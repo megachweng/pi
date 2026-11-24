@@ -5160,6 +5160,22 @@ export class InteractiveMode {
 						this.session.setAutoCompactionEnabled(enabled);
 						this.footer.setAutoCompactEnabled(enabled);
 					},
+					onDefaultModelChange: (provider, modelId) => {
+						const model = this.session.modelRuntime.getModel(provider, modelId);
+						if (!model) {
+							this.showError(`Model not available: ${provider}/${modelId}`);
+							return;
+						}
+						void this.session.setModel(model, { persist: true }).then(
+							() => {
+								this.updateAvailableProviderCount();
+								this.footer.invalidate();
+								this.updateEditorBorderColor();
+								this.showStatus(`Default model: ${provider}/${modelId}`);
+							},
+							(error: unknown) => this.showError(error instanceof Error ? error.message : String(error)),
+						);
+					},
 					onShowImagesChange: (enabled) => {
 						this.settingsManager.setShowImages(enabled);
 						for (const child of this.chatContainer.children) {

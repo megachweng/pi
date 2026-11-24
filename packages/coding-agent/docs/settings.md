@@ -10,8 +10,8 @@ Add `"$schema": "https://pi.dev/schemas/settings.schema.json"` to `settings.json
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `defaultProvider` | string | Automatic | Startup AI provider. |
-| `defaultModel` | string | Automatic | Startup model ID. |
+| `defaultProvider` | string | Automatic | Startup AI provider. Set by **Default model** in `/settings` and by `Ctrl+S` in `/model`. |
+| `defaultModel` | string | Automatic | Startup model ID. Set by **Default model** in `/settings` and by `Ctrl+S` in `/model`. |
 | `defaultThinkingLevel` | `"off" \| "minimal" \| "low" \| "medium" \| "high" \| "xhigh" \| "max"` | `"medium"` | Startup thinking level. |
 | `modelThinkingLevels` | object | None | Per-model startup thinking levels keyed by exact `provider/modelId`. |
 | `thinkingBudgets` | object | Built-in budgets | Token budgets for `minimal`, `low`, `medium`, and `high` thinking levels. |

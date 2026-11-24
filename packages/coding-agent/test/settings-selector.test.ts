@@ -137,6 +137,39 @@ describe("SettingsSelectorComponent", () => {
 		expect(output).toContain("→   other");
 	});
 
+	it("sets the default model from the settings list", async () => {
+		harness = await createHarness({ models: [{ id: "model-a" }, { id: "model-b" }] });
+		const modelA = harness.getModel("model-a")!;
+		const modelB = harness.getModel("model-b")!;
+		const onDefaultModelChange = vi.fn();
+		const config = {
+			defaultModel: `${modelB.provider}/${modelB.id}`,
+			availableDefaultModels: [modelB, modelA],
+			availableThinkingLevels: [],
+			modelThinkingLevels: {},
+			warnings: {},
+			availableThemes: [],
+		} as unknown as SettingsConfig;
+		const callbacks = { onDefaultModelChange, onCancel: () => {} } as unknown as SettingsCallbacks;
+		const list = new SettingsSelectorComponent(config, callbacks).getSettingsList();
+
+		list.selectItem("default-model");
+		list.handleInput("\r");
+		const output = stripAnsi(list.render(120).join("\n"));
+		expect(output).toContain(`✓ ${modelB.id}`);
+		expect(output).toContain(`  ${modelA.id}`);
+
+		// The configured default is preselected, so one arrow up selects the other model.
+		list.handleInput("\x1b[A");
+		list.handleInput("\r");
+		expect(onDefaultModelChange).toHaveBeenCalledWith(modelA.provider, modelA.id);
+
+		// Reopening shows the new default marked.
+		list.selectItem("default-model");
+		list.handleInput("\r");
+		expect(stripAnsi(list.render(120).join("\n"))).toContain(`✓ ${modelA.id}`);
+	});
+
 	it("keeps the configured per-model thinking level marked while browsing", async () => {
 		harness = await createHarness({
 			models: [{ id: "thinking-model", reasoning: true }],

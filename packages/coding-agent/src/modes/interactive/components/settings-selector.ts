@@ -103,6 +103,7 @@ export interface SettingsConfig {
 
 export interface SettingsCallbacks {
 	onAutoCompactChange: (enabled: boolean) => void;
+	onDefaultModelChange: (provider: string, modelId: string) => void;
 	onShowImagesChange: (enabled: boolean) => void;
 	onImageWidthCellsChange: (width: number) => void;
 	onAutoResizeImagesChange: (enabled: boolean) => void;
@@ -188,6 +189,7 @@ class WarningSettingsSubmenu extends Container {
 }
 
 const CLEAR_OVERRIDE_VALUE = "__clear__";
+const NO_MODELS_VALUE = "__no_models__";
 
 function modelSettingKey(model: Model<any>): string {
 	return `${model.provider}/${model.id}`;
@@ -205,6 +207,21 @@ function modelThinkingOverridesSummary(overrides: Record<string, ThinkingLevel>)
 
 function modelItemLabel(model: Model<any>): string {
 	return `${model.id} ${theme.fg("muted", `[${model.provider}]`)}`;
+}
+
+/** Models in picker order: the current model, then the default, then by provider and id. */
+function orderedModels(
+	models: readonly Model<any>[],
+	currentModelKey: string | undefined,
+	defaultModelKey: string | undefined,
+): Model<any>[] {
+	const rank = (key: string): number => (key === currentModelKey ? 0 : key === defaultModelKey ? 1 : 2);
+	return [...models].sort((a, b) => {
+		const aRank = rank(modelSettingKey(a));
+		const bRank = rank(modelSettingKey(b));
+		if (aRank !== bRank) return aRank - bRank;
+		return modelSettingKey(a).localeCompare(modelSettingKey(b));
+	});
 }
 
 function themeItems(availableThemes: string[], currentTheme: string): SelectItem[] {
@@ -597,6 +614,41 @@ export class SettingsSelectorComponent extends Container {
 					),
 			},
 			{
+				id: "default-model",
+				label: "Default model",
+				description: "Model new sessions start with",
+				currentValue: config.defaultModel,
+				submenu: (currentValue, done) => {
+					const options = orderedModels(config.availableDefaultModels, currentModelKey, currentValue);
+					const items: SelectItem[] =
+						options.length > 0
+							? options.map((model) => {
+									const key = modelSettingKey(model);
+									return {
+										value: key,
+										label: `${key === currentValue ? "✓ " : "  "}${modelItemLabel(model)}`,
+									};
+								})
+							: [
+									{
+										value: NO_MODELS_VALUE,
+										label: "No models available",
+										description: "Log in to a provider or configure an API key first",
+									},
+								];
+					return new SelectSubmenu(
+						"Default Model",
+						"Model new sessions start with",
+						items,
+						currentValue,
+						(value) => done(value === NO_MODELS_VALUE ? undefined : value),
+						() => done(),
+						undefined,
+						{ searchable: true, layout: MODEL_PICKER_LAYOUT },
+					);
+				},
+			},
+			{
 				id: "model-thinking",
 				label: "Default thinking level per model",
 				description: `Override the default thinking level for specific models. ${cycleThinkingKey} cycles in-session.`,
@@ -608,16 +660,12 @@ export class SettingsSelectorComponent extends Container {
 							title: "Per-Model Thinking Level",
 							description: "Select a model to configure",
 							options: () => {
-								const sorted = [...config.availableDefaultModels].sort((a, b) => {
-									const aKey = modelSettingKey(a);
-									const bKey = modelSettingKey(b);
-									if (aKey === currentModelKey) return -1;
-									if (bKey === currentModelKey) return 1;
-									if (aKey === currentDefaultModelKey) return -1;
-									if (bKey === currentDefaultModelKey) return 1;
-									return a.provider.localeCompare(b.provider);
-								});
-								const items: SelectItem[] = sorted.map((model) => {
+								const ordered = orderedModels(
+									config.availableDefaultModels,
+									currentModelKey,
+									currentDefaultModelKey,
+								);
+								const items: SelectItem[] = ordered.map((model) => {
 									const key = modelSettingKey(model);
 									const override = currentModelThinkingLevels[key];
 									return {
@@ -879,6 +927,11 @@ export class SettingsSelectorComponent extends Container {
 					case "autocompact":
 						callbacks.onAutoCompactChange(newValue === "true");
 						break;
+					case "default-model": {
+						const model = defaultModelByValue.get(newValue);
+						if (model) callbacks.onDefaultModelChange(model.provider, model.id);
+						break;
+					}
 					case "show-images":
 						callbacks.onShowImagesChange(newValue === "true");
 						break;
