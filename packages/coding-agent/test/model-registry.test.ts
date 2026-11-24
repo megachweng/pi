@@ -235,7 +235,7 @@ describe("ModelRegistry", () => {
 			// Built-in providers already have api/baseUrl on every model, and auth
 			// comes from env vars / auth storage. No need to specify them.
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					models: [
 						{
 							id: "fake-provider/fake-model",
@@ -250,10 +250,10 @@ describe("ModelRegistry", () => {
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
 			expect(registry.getError()).toBeUndefined();
 
-			const model = registry.find("openrouter", "fake-provider/fake-model");
+			const model = registry.find("together", "fake-provider/fake-model");
 			expect(model).toBeDefined();
 			expect(model?.api).toBe("openai-completions");
-			expect(model?.baseUrl).toBe("https://openrouter.ai/api/v1");
+			expect(model?.baseUrl).toBe("https://api.together.ai/v1");
 		});
 
 		test("non-built-in provider custom models still require baseUrl", async () => {
@@ -303,19 +303,19 @@ describe("ModelRegistry", () => {
 
 		test("custom model with same id replaces built-in model by id", async () => {
 			writeModelsJson({
-				openrouter: providerConfig(
+				together: providerConfig(
 					"https://my-proxy.example.com/v1",
-					[{ id: "anthropic/claude-sonnet-4.5" }],
+					[{ id: "moonshotai/Kimi-K3" }],
 					"openai-completions",
 				),
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnetModels = models.filter((m) => m.id === "anthropic/claude-sonnet-4.5");
+			const models = getModelsForProvider(registry, "together");
+			const kimiModels = models.filter((m) => m.id === "moonshotai/Kimi-K3");
 
-			expect(sonnetModels).toHaveLength(1);
-			expect(sonnetModels[0].baseUrl).toBe("https://my-proxy.example.com/v1");
+			expect(kimiModels).toHaveLength(1);
+			expect(kimiModels[0].baseUrl).toBe("https://my-proxy.example.com/v1");
 		});
 
 		test("custom provider with same name as built-in does not affect other built-in providers", async () => {
@@ -408,7 +408,7 @@ describe("ModelRegistry", () => {
 
 		test("provider-level compat applies to built-in models", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					compat: {
 						supportsUsageInStreaming: false,
 						supportsStrictMode: false,
@@ -417,7 +417,7 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
 			expect(models.length).toBeGreaterThan(0);
 			for (const model of models) {
@@ -638,14 +638,14 @@ describe("ModelRegistry", () => {
 
 		test("modelOverrides still apply when provider also defines models", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					baseUrl: "https://my-proxy.example.com/v1",
-					apiKey: "OPENROUTER_API_KEY",
+					apiKey: "TOGETHER_API_KEY",
 					api: "openai-completions",
 					models: [
 						{
-							id: "custom/openrouter-model",
-							name: "Custom OpenRouter Model",
+							id: "custom/together-model",
+							name: "Custom Together Model",
 							reasoning: false,
 							input: ["text"],
 							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -654,20 +654,18 @@ describe("ModelRegistry", () => {
 						},
 					],
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
-							name: "Overridden Built-in Sonnet",
+						"moonshotai/Kimi-K3": {
+							name: "Overridden Built-in Kimi",
 						},
 					},
 				},
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
-			expect(models.some((m) => m.id === "custom/openrouter-model")).toBe(true);
-			expect(
-				models.some((m) => m.id === "anthropic/claude-sonnet-4.5" && m.name === "Overridden Built-in Sonnet"),
-			).toBe(true);
+			expect(models.some((m) => m.id === "custom/together-model")).toBe(true);
+			expect(models.some((m) => m.id === "moonshotai/Kimi-K3" && m.name === "Overridden Built-in Kimi")).toBe(true);
 		});
 
 		test("refresh() reloads merged custom models from disk", async () => {
@@ -709,24 +707,24 @@ describe("ModelRegistry", () => {
 	describe("modelOverrides (per-model customization)", () => {
 		test("model override applies to a single built-in model", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
-							name: "Custom Sonnet Name",
+						"moonshotai/Kimi-K3": {
+							name: "Custom Kimi Name",
 						},
 					},
 				},
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
-			expect(sonnet?.name).toBe("Custom Sonnet Name");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
+			expect(kimi?.name).toBe("Custom Kimi Name");
 
 			// Other models should be unchanged
-			const opus = models.find((m) => m.id === "anthropic/claude-opus-4.1");
-			expect(opus?.name).not.toBe("Custom Sonnet Name");
+			const other = models.find((m) => m.id === "MiniMaxAI/MiniMax-M3");
+			expect(other?.name).not.toBe("Custom Kimi Name");
 		});
 
 		test("Anthropic model override replaces allowed fallback metadata", async () => {
@@ -777,7 +775,7 @@ describe("ModelRegistry", () => {
 
 		test("custom models and model overrides carry sampling params", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					baseUrl: "https://my-proxy.example.com/v1",
 					api: "openai-completions",
 					models: [
@@ -797,7 +795,7 @@ describe("ModelRegistry", () => {
 								max: { temperature: 1 },
 							},
 						},
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							samplingParams: { top_p: 0.9 },
 							samplingParamsByThinkingLevel: { high: { temperature: 0.8 } },
 						},
@@ -806,7 +804,7 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
 			const custom = models.find((m) => m.id === "custom/sampling-model");
 			expect(custom?.samplingParams).toEqual({ temperature: 1, top_p: 0.95, top_k: 0 });
@@ -816,24 +814,24 @@ describe("ModelRegistry", () => {
 				max: { temperature: 1 },
 			});
 
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
-			expect(sonnet?.samplingParams).toEqual({ top_p: 0.9 });
-			expect(sonnet?.samplingParamsByThinkingLevel).toEqual({ high: { temperature: 0.8 } });
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
+			expect(kimi?.samplingParams).toEqual({ top_p: 0.9 });
+			expect(kimi?.samplingParamsByThinkingLevel).toEqual({ high: { temperature: 0.8 } });
 
 			// Models without sampling config keep it unset.
-			const opus = models.find((m) => m.id === "anthropic/claude-opus-4.1");
-			expect(opus?.samplingParams).toBeUndefined();
-			expect(opus?.samplingParamsByThinkingLevel).toBeUndefined();
+			const other = models.find((m) => m.id === "MiniMaxAI/MiniMax-M3");
+			expect(other?.samplingParams).toBeUndefined();
+			expect(other?.samplingParamsByThinkingLevel).toBeUndefined();
 		});
 
 		test("custom model and model override carry prompt cache lifetimes", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					baseUrl: "https://my-proxy.example.com/v1",
 					api: "openai-completions",
 					models: [{ id: "custom/cached-model", promptCache: { short: 120 } }],
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": { promptCache: { short: 300 } },
+						"moonshotai/Kimi-K3": { promptCache: { short: 300 } },
 					},
 				},
 				anthropic: {
@@ -844,12 +842,12 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const openrouter = getModelsForProvider(registry, "openrouter");
+			const together = getModelsForProvider(registry, "together");
 
 			expect(registry.getError()).toBeUndefined();
-			expect(openrouter.find((m) => m.id === "custom/cached-model")?.promptCache).toEqual({ short: 120 });
-			expect(openrouter.find((m) => m.id === "anthropic/claude-sonnet-4.5")?.promptCache).toEqual({ short: 300 });
-			expect(openrouter.find((m) => m.id === "anthropic/claude-opus-4.1")?.promptCache).toBeUndefined();
+			expect(together.find((m) => m.id === "custom/cached-model")?.promptCache).toEqual({ short: 120 });
+			expect(together.find((m) => m.id === "moonshotai/Kimi-K3")?.promptCache).toEqual({ short: 300 });
+			expect(together.find((m) => m.id === "MiniMaxAI/MiniMax-M3")?.promptCache).toBeUndefined();
 			// Overrides merge per tier with the built-in catalog.
 			expect(registry.find("anthropic", "claude-sonnet-4-6")?.promptCache).toEqual({ short: 300, long: 1800 });
 		});
@@ -904,9 +902,9 @@ describe("ModelRegistry", () => {
 
 		test("model override with compat.openRouterRouting", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							compat: {
 								openRouterRouting: { only: ["amazon-bedrock"] },
 							},
@@ -916,10 +914,10 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
-			const compat = sonnet?.compat as OpenAICompletionsCompat | undefined;
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
+			const compat = kimi?.compat as OpenAICompletionsCompat | undefined;
 			expect(compat?.openRouterRouting).toEqual({ only: ["amazon-bedrock"] });
 		});
 
@@ -927,20 +925,20 @@ describe("ModelRegistry", () => {
 			const provider: ModelsJsonProvider = {
 				compat: { supportsFinishReason: true },
 				modelOverrides: {
-					"anthropic/claude-sonnet-4.5": {
+					"moonshotai/Kimi-K3": {
 						compat: { supportsFinishReason: false },
 					},
 				},
 			};
-			writeRawModelsJson({ openrouter: provider });
+			writeRawModelsJson({ together: provider });
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnet = models.find((model) => model.id === "anthropic/claude-sonnet-4.5");
-			const opus = models.find((model) => model.id === "anthropic/claude-opus-4.1");
+			const models = getModelsForProvider(registry, "together");
+			const kimi = models.find((model) => model.id === "moonshotai/Kimi-K3");
+			const other = models.find((model) => model.id === "MiniMaxAI/MiniMax-M3");
 
-			expect((sonnet?.compat as OpenAICompletionsCompat | undefined)?.supportsFinishReason).toBe(false);
-			expect((opus?.compat as OpenAICompletionsCompat | undefined)?.supportsFinishReason).toBe(true);
+			expect((kimi?.compat as OpenAICompletionsCompat | undefined)?.supportsFinishReason).toBe(false);
+			expect((other?.compat as OpenAICompletionsCompat | undefined)?.supportsFinishReason).toBe(true);
 		});
 
 		test("built-in models inherit prompt cache key support unless overridden", async () => {
@@ -961,9 +959,9 @@ describe("ModelRegistry", () => {
 
 		test("model override deep merges compat settings", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							compat: {
 								openRouterRouting: { order: ["anthropic", "together"] },
 							},
@@ -973,22 +971,22 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
+			const models = getModelsForProvider(registry, "together");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
 
 			// Should have both the new routing AND preserve other compat settings
-			const compat = sonnet?.compat as OpenAICompletionsCompat | undefined;
+			const compat = kimi?.compat as OpenAICompletionsCompat | undefined;
 			expect(compat?.openRouterRouting).toEqual({ order: ["anthropic", "together"] });
 		});
 
 		test("multiple model overrides on same provider", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							compat: { openRouterRouting: { only: ["amazon-bedrock"] } },
 						},
-						"anthropic/claude-opus-4.1": {
+						"MiniMaxAI/MiniMax-M3": {
 							compat: { openRouterRouting: { only: ["anthropic"] } },
 						},
 					},
@@ -996,46 +994,46 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
-			const opus = models.find((m) => m.id === "anthropic/claude-opus-4.1");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
+			const other = models.find((m) => m.id === "MiniMaxAI/MiniMax-M3");
 
-			const sonnetCompat = sonnet?.compat as OpenAICompletionsCompat | undefined;
-			const opusCompat = opus?.compat as OpenAICompletionsCompat | undefined;
-			expect(sonnetCompat?.openRouterRouting).toEqual({ only: ["amazon-bedrock"] });
-			expect(opusCompat?.openRouterRouting).toEqual({ only: ["anthropic"] });
+			const kimiCompat = kimi?.compat as OpenAICompletionsCompat | undefined;
+			const otherCompat = other?.compat as OpenAICompletionsCompat | undefined;
+			expect(kimiCompat?.openRouterRouting).toEqual({ only: ["amazon-bedrock"] });
+			expect(otherCompat?.openRouterRouting).toEqual({ only: ["anthropic"] });
 		});
 
 		test("model override combined with baseUrl override", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					baseUrl: "https://my-proxy.example.com/v1",
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
-							name: "Proxied Sonnet",
+						"moonshotai/Kimi-K3": {
+							name: "Proxied Kimi",
 						},
 					},
 				},
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
+			const models = getModelsForProvider(registry, "together");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
 
 			// Both overrides should apply
-			expect(sonnet?.baseUrl).toBe("https://my-proxy.example.com/v1");
-			expect(sonnet?.name).toBe("Proxied Sonnet");
+			expect(kimi?.baseUrl).toBe("https://my-proxy.example.com/v1");
+			expect(kimi?.name).toBe("Proxied Kimi");
 
 			// Other models should have the baseUrl but not the name override
-			const opus = models.find((m) => m.id === "anthropic/claude-opus-4.1");
-			expect(opus?.baseUrl).toBe("https://my-proxy.example.com/v1");
-			expect(opus?.name).not.toBe("Proxied Sonnet");
+			const other = models.find((m) => m.id === "MiniMaxAI/MiniMax-M3");
+			expect(other?.baseUrl).toBe("https://my-proxy.example.com/v1");
+			expect(other?.name).not.toBe("Proxied Kimi");
 		});
 
 		test("model override for non-existent model ID is ignored", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
 						"nonexistent/model-id": {
 							name: "This should not appear",
@@ -1045,7 +1043,7 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
+			const models = getModelsForProvider(registry, "together");
 
 			// Should not create a new model
 			expect(models.find((m) => m.id === "nonexistent/model-id")).toBeUndefined();
@@ -1055,9 +1053,9 @@ describe("ModelRegistry", () => {
 
 		test("model override can change cost fields partially", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							cost: { input: 99 },
 						},
 					},
@@ -1065,20 +1063,20 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
+			const models = getModelsForProvider(registry, "together");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
 
 			// Input cost should be overridden
-			expect(sonnet?.cost.input).toBe(99);
+			expect(kimi?.cost.input).toBe(99);
 			// Other cost fields should be preserved from built-in
-			expect(sonnet?.cost.output).toBeGreaterThan(0);
+			expect(kimi?.cost.output).toBeGreaterThan(0);
 		});
 
 		test("model override can add headers at request time", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							headers: { "X-Custom-Model-Header": "value" },
 						},
 					},
@@ -1086,11 +1084,11 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const models = getModelsForProvider(registry, "openrouter");
-			const sonnet = models.find((m) => m.id === "anthropic/claude-sonnet-4.5");
-			expect(sonnet).toBeDefined();
+			const models = getModelsForProvider(registry, "together");
+			const kimi = models.find((m) => m.id === "moonshotai/Kimi-K3");
+			expect(kimi).toBeDefined();
 
-			const auth = await registry.getApiKeyAndHeaders(sonnet!);
+			const auth = await registry.getApiKeyAndHeaders(kimi!);
 			expect(auth.ok).toBe(true);
 			if (auth.ok) {
 				expect(auth.headers?.["X-Custom-Model-Header"]).toBe("value");
@@ -1099,9 +1097,9 @@ describe("ModelRegistry", () => {
 
 		test("refresh() picks up model override changes", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							name: "First Name",
 						},
 					},
@@ -1109,15 +1107,15 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			expect(
-				getModelsForProvider(registry, "openrouter").find((m) => m.id === "anthropic/claude-sonnet-4.5")?.name,
-			).toBe("First Name");
+			expect(getModelsForProvider(registry, "together").find((m) => m.id === "moonshotai/Kimi-K3")?.name).toBe(
+				"First Name",
+			);
 
 			// Update and refresh
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							name: "Second Name",
 						},
 					},
@@ -1125,16 +1123,16 @@ describe("ModelRegistry", () => {
 			});
 			await registry.refresh();
 
-			expect(
-				getModelsForProvider(registry, "openrouter").find((m) => m.id === "anthropic/claude-sonnet-4.5")?.name,
-			).toBe("Second Name");
+			expect(getModelsForProvider(registry, "together").find((m) => m.id === "moonshotai/Kimi-K3")?.name).toBe(
+				"Second Name",
+			);
 		});
 
 		test("removing model override restores built-in values", async () => {
 			writeRawModelsJson({
-				openrouter: {
+				together: {
 					modelOverrides: {
-						"anthropic/claude-sonnet-4.5": {
+						"moonshotai/Kimi-K3": {
 							name: "Custom Name",
 						},
 					},
@@ -1142,17 +1140,15 @@ describe("ModelRegistry", () => {
 			});
 
 			const registry = await createModelRegistry(authStorage, modelsJsonPath);
-			const customName = getModelsForProvider(registry, "openrouter").find(
-				(m) => m.id === "anthropic/claude-sonnet-4.5",
-			)?.name;
+			const customName = getModelsForProvider(registry, "together").find((m) => m.id === "moonshotai/Kimi-K3")?.name;
 			expect(customName).toBe("Custom Name");
 
 			// Remove override and refresh
 			writeRawModelsJson({});
 			await registry.refresh();
 
-			const restoredName = getModelsForProvider(registry, "openrouter").find(
-				(m) => m.id === "anthropic/claude-sonnet-4.5",
+			const restoredName = getModelsForProvider(registry, "together").find(
+				(m) => m.id === "moonshotai/Kimi-K3",
 			)?.name;
 			expect(restoredName).not.toBe("Custom Name");
 		});

@@ -23,20 +23,16 @@ import { MINIMAX_CN_CLASSIFIER_MODELS, MINIMAX_CN_IMAGE_MODELS, MINIMAX_CN_MODEL
 import { MISTRAL_CLASSIFIER_MODELS, MISTRAL_IMAGE_MODELS, MISTRAL_MODELS } from "./providers/mistral.models.ts";
 import { MOONSHOTAI_CLASSIFIER_MODELS, MOONSHOTAI_IMAGE_MODELS, MOONSHOTAI_MODELS } from "./providers/moonshotai.models.ts";
 import { MOONSHOTAI_CN_CLASSIFIER_MODELS, MOONSHOTAI_CN_IMAGE_MODELS, MOONSHOTAI_CN_MODELS } from "./providers/moonshotai-cn.models.ts";
-import { NVIDIA_CLASSIFIER_MODELS, NVIDIA_IMAGE_MODELS, NVIDIA_MODELS } from "./providers/nvidia.models.ts";
 import { OPENAI_CLASSIFIER_MODELS, OPENAI_IMAGE_MODELS, OPENAI_MODELS } from "./providers/openai.models.ts";
 import { OPENAI_CODEX_CLASSIFIER_MODELS, OPENAI_CODEX_IMAGE_MODELS, OPENAI_CODEX_MODELS } from "./providers/openai-codex.models.ts";
 import { OPENCODE_CLASSIFIER_MODELS, OPENCODE_IMAGE_MODELS, OPENCODE_MODELS } from "./providers/opencode.models.ts";
 import { OPENCODE_GO_CLASSIFIER_MODELS, OPENCODE_GO_IMAGE_MODELS, OPENCODE_GO_MODELS } from "./providers/opencode-go.models.ts";
-import { OPENROUTER_CLASSIFIER_MODELS, OPENROUTER_IMAGE_MODELS, OPENROUTER_MODELS } from "./providers/openrouter.models.ts";
 import { QWEN_TOKEN_PLAN_CLASSIFIER_MODELS, QWEN_TOKEN_PLAN_IMAGE_MODELS, QWEN_TOKEN_PLAN_MODELS } from "./providers/qwen-token-plan.models.ts";
 import { QWEN_TOKEN_PLAN_CN_CLASSIFIER_MODELS, QWEN_TOKEN_PLAN_CN_IMAGE_MODELS, QWEN_TOKEN_PLAN_CN_MODELS } from "./providers/qwen-token-plan-cn.models.ts";
 import { QWEN_TOKEN_PLAN_INDIVIDUAL_CLASSIFIER_MODELS, QWEN_TOKEN_PLAN_INDIVIDUAL_IMAGE_MODELS, QWEN_TOKEN_PLAN_INDIVIDUAL_MODELS } from "./providers/qwen-token-plan-individual.models.ts";
 import { QWEN_TOKEN_PLAN_INDIVIDUAL_CN_CLASSIFIER_MODELS, QWEN_TOKEN_PLAN_INDIVIDUAL_CN_IMAGE_MODELS, QWEN_TOKEN_PLAN_INDIVIDUAL_CN_MODELS } from "./providers/qwen-token-plan-individual-cn.models.ts";
-import { RADIUS_CLASSIFIER_MODELS, RADIUS_IMAGE_MODELS, RADIUS_MODELS } from "./providers/radius.models.ts";
 import { TOGETHER_CLASSIFIER_MODELS, TOGETHER_IMAGE_MODELS, TOGETHER_MODELS } from "./providers/together.models.ts";
 import { TYPESAFE_CLASSIFIER_MODELS, TYPESAFE_IMAGE_MODELS, TYPESAFE_MODELS } from "./providers/typesafe.models.ts";
-import { VERCEL_AI_GATEWAY_CLASSIFIER_MODELS, VERCEL_AI_GATEWAY_IMAGE_MODELS, VERCEL_AI_GATEWAY_MODELS } from "./providers/vercel-ai-gateway.models.ts";
 import { XAI_CLASSIFIER_MODELS, XAI_IMAGE_MODELS, XAI_MODELS } from "./providers/xai.models.ts";
 import { XIAOMI_CLASSIFIER_MODELS, XIAOMI_IMAGE_MODELS, XIAOMI_MODELS } from "./providers/xiaomi.models.ts";
 import { XIAOMI_TOKEN_PLAN_AMS_CLASSIFIER_MODELS, XIAOMI_TOKEN_PLAN_AMS_IMAGE_MODELS, XIAOMI_TOKEN_PLAN_AMS_MODELS } from "./providers/xiaomi-token-plan-ams.models.ts";
@@ -68,20 +64,16 @@ export const MODELS: {
 	readonly "mistral": typeof MISTRAL_MODELS;
 	readonly "moonshotai": typeof MOONSHOTAI_MODELS;
 	readonly "moonshotai-cn": typeof MOONSHOTAI_CN_MODELS;
-	readonly "nvidia": typeof NVIDIA_MODELS;
 	readonly "openai": typeof OPENAI_MODELS;
 	readonly "openai-codex": typeof OPENAI_CODEX_MODELS;
 	readonly "opencode": typeof OPENCODE_MODELS;
 	readonly "opencode-go": typeof OPENCODE_GO_MODELS;
-	readonly "openrouter": typeof OPENROUTER_MODELS;
 	readonly "qwen-token-plan": typeof QWEN_TOKEN_PLAN_MODELS;
 	readonly "qwen-token-plan-cn": typeof QWEN_TOKEN_PLAN_CN_MODELS;
 	readonly "qwen-token-plan-individual": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_MODELS;
 	readonly "qwen-token-plan-individual-cn": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_CN_MODELS;
-	readonly "radius": typeof RADIUS_MODELS;
 	readonly "together": typeof TOGETHER_MODELS;
 	readonly "typesafe": typeof TYPESAFE_MODELS;
-	readonly "vercel-ai-gateway": typeof VERCEL_AI_GATEWAY_MODELS;
 	readonly "xai": typeof XAI_MODELS;
 	readonly "xiaomi": typeof XIAOMI_MODELS;
 	readonly "xiaomi-token-plan-ams": typeof XIAOMI_TOKEN_PLAN_AMS_MODELS;
@@ -112,20 +104,16 @@ export const MODELS: {
 	"mistral": MISTRAL_MODELS,
 	"moonshotai": MOONSHOTAI_MODELS,
 	"moonshotai-cn": MOONSHOTAI_CN_MODELS,
-	"nvidia": NVIDIA_MODELS,
 	"openai": OPENAI_MODELS,
 	"openai-codex": OPENAI_CODEX_MODELS,
 	"opencode": OPENCODE_MODELS,
 	"opencode-go": OPENCODE_GO_MODELS,
-	"openrouter": OPENROUTER_MODELS,
 	"qwen-token-plan": QWEN_TOKEN_PLAN_MODELS,
 	"qwen-token-plan-cn": QWEN_TOKEN_PLAN_CN_MODELS,
 	"qwen-token-plan-individual": QWEN_TOKEN_PLAN_INDIVIDUAL_MODELS,
 	"qwen-token-plan-individual-cn": QWEN_TOKEN_PLAN_INDIVIDUAL_CN_MODELS,
-	"radius": RADIUS_MODELS,
 	"together": TOGETHER_MODELS,
 	"typesafe": TYPESAFE_MODELS,
-	"vercel-ai-gateway": VERCEL_AI_GATEWAY_MODELS,
 	"xai": XAI_MODELS,
 	"xiaomi": XIAOMI_MODELS,
 	"xiaomi-token-plan-ams": XIAOMI_TOKEN_PLAN_AMS_MODELS,
@@ -158,20 +146,16 @@ export const IMAGE_MODELS: {
 	readonly "mistral": typeof MISTRAL_IMAGE_MODELS;
 	readonly "moonshotai": typeof MOONSHOTAI_IMAGE_MODELS;
 	readonly "moonshotai-cn": typeof MOONSHOTAI_CN_IMAGE_MODELS;
-	readonly "nvidia": typeof NVIDIA_IMAGE_MODELS;
 	readonly "openai": typeof OPENAI_IMAGE_MODELS;
 	readonly "openai-codex": typeof OPENAI_CODEX_IMAGE_MODELS;
 	readonly "opencode": typeof OPENCODE_IMAGE_MODELS;
 	readonly "opencode-go": typeof OPENCODE_GO_IMAGE_MODELS;
-	readonly "openrouter": typeof OPENROUTER_IMAGE_MODELS;
 	readonly "qwen-token-plan": typeof QWEN_TOKEN_PLAN_IMAGE_MODELS;
 	readonly "qwen-token-plan-cn": typeof QWEN_TOKEN_PLAN_CN_IMAGE_MODELS;
 	readonly "qwen-token-plan-individual": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_IMAGE_MODELS;
 	readonly "qwen-token-plan-individual-cn": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_CN_IMAGE_MODELS;
-	readonly "radius": typeof RADIUS_IMAGE_MODELS;
 	readonly "together": typeof TOGETHER_IMAGE_MODELS;
 	readonly "typesafe": typeof TYPESAFE_IMAGE_MODELS;
-	readonly "vercel-ai-gateway": typeof VERCEL_AI_GATEWAY_IMAGE_MODELS;
 	readonly "xai": typeof XAI_IMAGE_MODELS;
 	readonly "xiaomi": typeof XIAOMI_IMAGE_MODELS;
 	readonly "xiaomi-token-plan-ams": typeof XIAOMI_TOKEN_PLAN_AMS_IMAGE_MODELS;
@@ -202,20 +186,16 @@ export const IMAGE_MODELS: {
 	"mistral": MISTRAL_IMAGE_MODELS,
 	"moonshotai": MOONSHOTAI_IMAGE_MODELS,
 	"moonshotai-cn": MOONSHOTAI_CN_IMAGE_MODELS,
-	"nvidia": NVIDIA_IMAGE_MODELS,
 	"openai": OPENAI_IMAGE_MODELS,
 	"openai-codex": OPENAI_CODEX_IMAGE_MODELS,
 	"opencode": OPENCODE_IMAGE_MODELS,
 	"opencode-go": OPENCODE_GO_IMAGE_MODELS,
-	"openrouter": OPENROUTER_IMAGE_MODELS,
 	"qwen-token-plan": QWEN_TOKEN_PLAN_IMAGE_MODELS,
 	"qwen-token-plan-cn": QWEN_TOKEN_PLAN_CN_IMAGE_MODELS,
 	"qwen-token-plan-individual": QWEN_TOKEN_PLAN_INDIVIDUAL_IMAGE_MODELS,
 	"qwen-token-plan-individual-cn": QWEN_TOKEN_PLAN_INDIVIDUAL_CN_IMAGE_MODELS,
-	"radius": RADIUS_IMAGE_MODELS,
 	"together": TOGETHER_IMAGE_MODELS,
 	"typesafe": TYPESAFE_IMAGE_MODELS,
-	"vercel-ai-gateway": VERCEL_AI_GATEWAY_IMAGE_MODELS,
 	"xai": XAI_IMAGE_MODELS,
 	"xiaomi": XIAOMI_IMAGE_MODELS,
 	"xiaomi-token-plan-ams": XIAOMI_TOKEN_PLAN_AMS_IMAGE_MODELS,
@@ -248,20 +228,16 @@ export const CLASSIFIER_MODELS: {
 	readonly "mistral": typeof MISTRAL_CLASSIFIER_MODELS;
 	readonly "moonshotai": typeof MOONSHOTAI_CLASSIFIER_MODELS;
 	readonly "moonshotai-cn": typeof MOONSHOTAI_CN_CLASSIFIER_MODELS;
-	readonly "nvidia": typeof NVIDIA_CLASSIFIER_MODELS;
 	readonly "openai": typeof OPENAI_CLASSIFIER_MODELS;
 	readonly "openai-codex": typeof OPENAI_CODEX_CLASSIFIER_MODELS;
 	readonly "opencode": typeof OPENCODE_CLASSIFIER_MODELS;
 	readonly "opencode-go": typeof OPENCODE_GO_CLASSIFIER_MODELS;
-	readonly "openrouter": typeof OPENROUTER_CLASSIFIER_MODELS;
 	readonly "qwen-token-plan": typeof QWEN_TOKEN_PLAN_CLASSIFIER_MODELS;
 	readonly "qwen-token-plan-cn": typeof QWEN_TOKEN_PLAN_CN_CLASSIFIER_MODELS;
 	readonly "qwen-token-plan-individual": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_CLASSIFIER_MODELS;
 	readonly "qwen-token-plan-individual-cn": typeof QWEN_TOKEN_PLAN_INDIVIDUAL_CN_CLASSIFIER_MODELS;
-	readonly "radius": typeof RADIUS_CLASSIFIER_MODELS;
 	readonly "together": typeof TOGETHER_CLASSIFIER_MODELS;
 	readonly "typesafe": typeof TYPESAFE_CLASSIFIER_MODELS;
-	readonly "vercel-ai-gateway": typeof VERCEL_AI_GATEWAY_CLASSIFIER_MODELS;
 	readonly "xai": typeof XAI_CLASSIFIER_MODELS;
 	readonly "xiaomi": typeof XIAOMI_CLASSIFIER_MODELS;
 	readonly "xiaomi-token-plan-ams": typeof XIAOMI_TOKEN_PLAN_AMS_CLASSIFIER_MODELS;
@@ -292,20 +268,16 @@ export const CLASSIFIER_MODELS: {
 	"mistral": MISTRAL_CLASSIFIER_MODELS,
 	"moonshotai": MOONSHOTAI_CLASSIFIER_MODELS,
 	"moonshotai-cn": MOONSHOTAI_CN_CLASSIFIER_MODELS,
-	"nvidia": NVIDIA_CLASSIFIER_MODELS,
 	"openai": OPENAI_CLASSIFIER_MODELS,
 	"openai-codex": OPENAI_CODEX_CLASSIFIER_MODELS,
 	"opencode": OPENCODE_CLASSIFIER_MODELS,
 	"opencode-go": OPENCODE_GO_CLASSIFIER_MODELS,
-	"openrouter": OPENROUTER_CLASSIFIER_MODELS,
 	"qwen-token-plan": QWEN_TOKEN_PLAN_CLASSIFIER_MODELS,
 	"qwen-token-plan-cn": QWEN_TOKEN_PLAN_CN_CLASSIFIER_MODELS,
 	"qwen-token-plan-individual": QWEN_TOKEN_PLAN_INDIVIDUAL_CLASSIFIER_MODELS,
 	"qwen-token-plan-individual-cn": QWEN_TOKEN_PLAN_INDIVIDUAL_CN_CLASSIFIER_MODELS,
-	"radius": RADIUS_CLASSIFIER_MODELS,
 	"together": TOGETHER_CLASSIFIER_MODELS,
 	"typesafe": TYPESAFE_CLASSIFIER_MODELS,
-	"vercel-ai-gateway": VERCEL_AI_GATEWAY_CLASSIFIER_MODELS,
 	"xai": XAI_CLASSIFIER_MODELS,
 	"xiaomi": XIAOMI_CLASSIFIER_MODELS,
 	"xiaomi-token-plan-ams": XIAOMI_TOKEN_PLAN_AMS_CLASSIFIER_MODELS,

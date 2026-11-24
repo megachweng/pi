@@ -129,7 +129,6 @@ describe("Models with classifier models", () => {
 	});
 
 	it.each([
-		["vercel-ai-gateway", "typesafe-ai/jev", "https://ai-gateway.vercel.sh/typesafe/v1/systemone"],
 		["opencode", "jev-1.13", "https://opencode.ai/inference/systemone/v1/systemone"],
 		["opencode", "jev-1.13-free", "https://opencode.ai/inference/systemone/v1/systemone"],
 	])("routes %s Jev (%s) to its TypeSafe-compatible endpoint", async (provider, id, url) => {
@@ -299,19 +298,5 @@ describe("Models with classifier models", () => {
 			},
 		});
 		expect(urls).toEqual(["https://api.individual.githubcopilot.com/v1/systemone"]);
-	});
-
-	it("routes OpenRouter classifier models through the System One API", () => {
-		const models = builtinModels();
-		for (const model of getBuiltinClassifierModels("openrouter")) {
-			expect(model).toMatchObject({
-				api: "typesafe-system-one",
-				baseUrl: "https://openrouter.ai/api/v1",
-				// Explicit, so images keep OpenRouter's form when the baseUrl is overridden.
-				compat: { imageInput: "state-image-urls", sendImageOptInHeader: false },
-			});
-			expect(models.getModel("openrouter", model.id)).toBeUndefined();
-			expect(models.getModelOfType("classifier", "openrouter", model.id)).toEqual(model);
-		}
 	});
 });

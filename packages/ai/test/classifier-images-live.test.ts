@@ -6,7 +6,6 @@
 import { describe, expect, it } from "vitest";
 import { createModels, type ModelsClassifierOptions } from "../src/models.ts";
 import { cloudflareWorkersAIProvider } from "../src/providers/cloudflare-workers-ai.ts";
-import { openrouterProvider } from "../src/providers/openrouter.ts";
 import { typesafeProvider } from "../src/providers/typesafe.ts";
 import type { ClassifierContext } from "../src/types.ts";
 import { hasCloudflareWorkersAICredentials } from "./cloudflare-utils.ts";
@@ -34,7 +33,6 @@ function colorContext(data: string): ClassifierContext {
 const models = createModels();
 models.setProvider(typesafeProvider());
 models.setProvider(cloudflareWorkersAIProvider());
-models.setProvider(openrouterProvider());
 
 async function expectColors(provider: string, id: string, options: ModelsClassifierOptions): Promise<void> {
 	const model = models.getModelOfType("classifier", provider, id);
@@ -70,16 +68,6 @@ describe.skipIf(!hasCloudflareWorkersAICredentials())("Cloudflare Workers AI ima
 				apiKey: process.env.CLOUDFLARE_API_KEY,
 				env: { CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID! },
 			});
-		},
-		60_000,
-	);
-});
-
-describe.skipIf(!process.env.OPENROUTER_API_KEY)("OpenRouter image classification", () => {
-	it.each(["typesafe/jev-1.14", "cloudflare/clef-flash"])(
-		"classifies images with %s",
-		async (id) => {
-			await expectColors("openrouter", id, { apiKey: process.env.OPENROUTER_API_KEY });
 		},
 		60_000,
 	);

@@ -23,20 +23,16 @@ import minimaxCn from "./minimax-cn.ts";
 import mistral from "./mistral.ts";
 import moonshotai from "./moonshotai.ts";
 import moonshotaiCn from "./moonshotai-cn.ts";
-import nvidia from "./nvidia.ts";
 import openai from "./openai.ts";
 import openaiCodex from "./openai-codex.ts";
 import opencode from "./opencode.ts";
 import opencodeGo from "./opencode-go.ts";
-import openrouter from "./openrouter.ts";
 import qwenTokenPlan from "./qwen-token-plan.ts";
 import qwenTokenPlanCn from "./qwen-token-plan-cn.ts";
 import qwenTokenPlanIndividual from "./qwen-token-plan-individual.ts";
 import qwenTokenPlanIndividualCn from "./qwen-token-plan-individual-cn.ts";
-import radius from "./radius.ts";
 import together from "./together.ts";
 import typesafe from "./typesafe.ts";
-import vercelAiGateway from "./vercel-ai-gateway.ts";
 import xai from "./xai.ts";
 import xiaomi from "./xiaomi.ts";
 import xiaomiTokenPlanAms from "./xiaomi-token-plan-ams.ts";
@@ -68,20 +64,16 @@ export const PROVIDERS: readonly ProviderDefinition[] = [
 	mistral,
 	moonshotaiCn,
 	moonshotai,
-	nvidia,
 	openaiCodex,
 	openai,
 	opencodeGo,
 	opencode,
-	openrouter,
 	qwenTokenPlanCn,
 	qwenTokenPlanIndividual,
 	qwenTokenPlanIndividualCn,
 	qwenTokenPlan,
-	radius,
 	together,
 	typesafe,
-	vercelAiGateway,
 	xai,
 	xiaomiTokenPlanAms,
 	xiaomiTokenPlanCn,

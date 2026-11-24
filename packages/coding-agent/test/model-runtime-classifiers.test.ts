@@ -85,21 +85,6 @@ describe("ModelRuntime classifiers", () => {
 		expect(result.answers.approved).toEqual({ type: "bool", probability: 0.8 });
 	});
 
-	it("keeps OpenRouter's image form when models.json routes OpenRouter through a proxy", async () => {
-		const runtime = await createRuntime({ providers: { openrouter: { baseUrl: "https://proxy.example.com/v1" } } });
-
-		const request = await captureImageRequest(runtime, "openrouter", "typesafe/jev-1.14");
-
-		// OpenRouter answers TypeSafe `assets` with 200 but drops the images.
-		expect(request.url).toBe("https://proxy.example.com/v1/systemone");
-		expect(request.body.state).toEqual([
-			{ type: "image_url", image_url: { url: "data:image/png;base64,cG5n" } },
-			context.state,
-		]);
-		expect(request.body).not.toHaveProperty("assets");
-		expect(request.headers.has("typesafe-danger-zone-images")).toBe(false);
-	});
-
 	it("applies provider compat from models.json to classifier models", async () => {
 		const runtime = await createRuntime({
 			providers: {

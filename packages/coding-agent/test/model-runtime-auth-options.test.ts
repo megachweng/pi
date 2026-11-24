@@ -132,12 +132,6 @@ describe("ModelRuntime auth options", () => {
 					refresh: "anthropic-refresh",
 					expires: Date.now() + 60 * 60_000,
 				},
-				openrouter: {
-					type: "oauth",
-					access: "openrouter-key",
-					refresh: "",
-					expires: Number.MAX_SAFE_INTEGER,
-				},
 				radius: {
 					type: "oauth",
 					access: "radius-access",
@@ -150,8 +144,6 @@ describe("ModelRuntime auth options", () => {
 
 		expect(runtime.isUsingOAuth("anthropic")).toBe(true);
 		expect(runtime.isUsingSubscription("anthropic")).toBe(true);
-		expect(runtime.isUsingOAuth("openrouter")).toBe(true);
-		expect(runtime.isUsingSubscription("openrouter")).toBe(false);
 		expect(runtime.isUsingOAuth("radius")).toBe(true);
 		expect(runtime.isUsingSubscription("radius")).toBe(false);
 	});

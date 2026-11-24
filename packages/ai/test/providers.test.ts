@@ -67,13 +67,14 @@ describe("builtin providers", () => {
 
 		for (const provider of providers) {
 			const list = models.getAllModels(provider.id);
+			// Radius ships no catalog: its models come from the gateway on refresh.
+			if (provider.id === "radius") {
+				expect(list).toEqual([]);
+				continue;
+			}
 			expect(list.length).toBeGreaterThan(0);
 			expect(list.every((m) => m.provider === provider.id)).toBe(true);
 		}
-		expect(getBuiltinModel("radius", "balanced")).toMatchObject({
-			api: "pi-messages",
-			provider: "radius",
-		});
 	});
 
 	it("returns empty results for unknown provider ids", () => {
@@ -131,11 +132,6 @@ describe("builtin providers", () => {
 		});
 	});
 
-	it("does not infer image limits from gateway API compatibility", () => {
-		const openRouterModel = getBuiltinModels("openrouter").find((model) => model.input.includes("image"));
-		expect(openRouterModel?.inputLimits).toEqual({ images: { resize: DEFAULT_IMAGE_RESIZE } });
-	});
-
 	it("uses models.dev effort levels for Google thinking models", () => {
 		// Regression test for https://github.com/earendil-works/pi/issues/9455
 		for (const provider of ["google", "google-vertex"] as const) {
@@ -189,7 +185,6 @@ describe("builtin providers", () => {
 			["github-copilot", "claude-opus-4.8"],
 			["github-copilot", "kimi-k3"],
 			["deepseek", "deepseek-v4-pro"],
-			["openrouter", "openai/gpt-5.6-terra"],
 		] as const;
 		const unsupported = [
 			["fireworks", "accounts/fireworks/models/deepseek-v4p1-flash"],
@@ -201,9 +196,6 @@ describe("builtin providers", () => {
 			["opencode", "claude-sonnet-4-5"],
 			["github-copilot", "claude-sonnet-4.6"],
 			["deepseek", "deepseek-flash"],
-			["openrouter", "anthropic/claude-opus-5"],
-			["openrouter", "moonshotai/kimi-k3"],
-			["openrouter", "openai/gpt-5.6-terra:batch"],
 		] as const;
 		for (const [provider, modelId] of supported) {
 			expect(models.getModel(provider, modelId), `${provider}/${modelId}`).toHaveProperty(
@@ -255,9 +247,6 @@ describe("builtin providers", () => {
 			}
 		}
 		expect(models.getModel("github-copilot", "kimi-k3")?.compat).not.toHaveProperty("supportsMidConvoToolAdditions");
-		expect(models.getModel("openrouter", "openai/gpt-5.6-terra")?.compat).not.toHaveProperty(
-			"supportsMidConvoToolAdditions",
-		);
 	});
 
 	it("uses official Kimi K3 pricing for Moonshot providers", () => {

@@ -1150,55 +1150,6 @@ describe("openai-completions tool_choice", () => {
 		expect(writeCall).not.toHaveProperty("partialArgs");
 	});
 
-	it("uses system messages for non-OpenAI/Anthropic OpenRouter reasoning model instructions", async () => {
-		const model = getModel("openrouter", "deepseek/deepseek-v4-pro")!;
-		let payload: unknown;
-
-		await streamSimple(
-			model,
-			{
-				systemPrompt: "Follow instructions.",
-				messages: [{ role: "user", content: "Hi", timestamp: Date.now() }],
-			},
-			{
-				apiKey: "test",
-				onPayload: (params: unknown) => {
-					payload = params;
-				},
-			},
-		).result();
-
-		const params = payload as { messages?: Array<{ role?: string }> };
-		expect(params.messages?.[0]?.role).toBe("system");
-	});
-
-	it("keeps developer messages for OpenAI and Anthropic OpenRouter batch instructions", async () => {
-		for (const model of [
-			getModel("openrouter", "openai/gpt-5.2-codex"),
-			getModel("openrouter", "anthropic/claude-fable-5.1:batch"),
-		]) {
-			expect(model).toBeDefined();
-			let payload: unknown;
-
-			await streamSimple(
-				model!,
-				{
-					systemPrompt: "Follow instructions.",
-					messages: [{ role: "user", content: "Hi", timestamp: Date.now() }],
-				},
-				{
-					apiKey: "test",
-					onPayload: (params: unknown) => {
-						payload = params;
-					},
-				},
-			).result();
-
-			const params = payload as { messages?: Array<{ role?: string }> };
-			expect(params.messages?.[0]?.role).toBe("developer");
-		}
-	});
-
 	it("keeps developer messages for OpenAI reasoning model instructions", async () => {
 		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-5.5")!;
 		const model = { ...baseModel, api: "openai-completions" } as const;
@@ -1220,14 +1171,6 @@ describe("openai-completions tool_choice", () => {
 
 		const params = payload as { messages?: Array<{ role?: string }> };
 		expect(params.messages?.[0]?.role).toBe("developer");
-	});
-
-	it("stores OpenRouter Kimi K2.6 reasoning replay compat in built-in metadata", () => {
-		// `:free` variant delisted from the OpenRouter API; the generator override
-		// matches any `moonshotai/kimi-k2.6*` variant that is listed.
-		const model = getModel("openrouter", "moonshotai/kimi-k2.6")!;
-		expect(model.compat?.supportsDeveloperRole).toBe(false);
-		expect(model.compat?.requiresReasoningContentOnAssistantMessages).toBe(true);
 	});
 
 	it("stores Xiaomi MiMo reasoning replay compat in built-in metadata", () => {
@@ -1768,7 +1711,14 @@ describe("openai-completions tool_choice", () => {
 	});
 
 	it("uses OpenRouter reasoning object instead of reasoning_effort", async () => {
-		const model = getModel("openrouter", "deepseek/deepseek-r1-0528")!;
+		const model = {
+			...localOpenAICompletionsModel,
+			id: "deepseek/deepseek-r1-0528",
+			name: "DeepSeek R1 via OpenRouter",
+			provider: "openrouter-compatible",
+			baseUrl: "https://openrouter-compatible.example/api/v1",
+			compat: { thinkingFormat: "openrouter" },
+		} satisfies Model<"openai-completions">;
 		let payload: unknown;
 
 		await streamSimple(

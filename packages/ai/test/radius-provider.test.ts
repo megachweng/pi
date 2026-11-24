@@ -36,20 +36,13 @@ afterEach(() => {
 });
 
 describe("Radius provider catalogs", () => {
-	it("ships a static public catalog for the default gateway", () => {
-		const provider = radiusProvider();
-		expect(provider.getModels().length).toBeGreaterThan(0);
-		expect(provider.getModels()).toContainEqual(
-			expect.objectContaining({ id: "balanced", provider: "radius", api: "pi-messages" }),
-		);
-	});
-
-	it("does not apply the public Radius catalog to custom gateways", () => {
+	it("exposes no models until the gateway catalog is fetched", () => {
+		expect(radiusProvider().getModels()).toEqual([]);
 		const provider = radiusProvider({ id: "radius-dev", gateway: "http://localhost:8788" });
 		expect(provider.getModels()).toEqual([]);
 	});
 
-	it("replaces the static public catalog with refreshed models", async () => {
+	it("uses the fetched gateway catalog", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(JSON.stringify(radiusConfig()), {
 				status: 200,
@@ -70,11 +63,11 @@ describe("Radius provider catalogs", () => {
 			contextWindow: 424242,
 		});
 		expect(models.getModel("radius", "organization-only")).toBeDefined();
-		// Models disabled by the organization must not reappear from the shipped catalog.
+		// Models disabled by the organization stay out of the catalog.
 		expect(models.getModels("radius").map((model) => model.id)).toEqual(["balanced", "organization-only"]);
 	});
 
-	it("replaces the static public catalog with a cached catalog without network access", async () => {
+	it("uses a cached catalog without network access", async () => {
 		const store = new InMemoryModelsStore();
 		await store.write("radius", {
 			models: getRadiusModelsFromConfig("radius", radiusConfig()),

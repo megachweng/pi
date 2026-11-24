@@ -155,9 +155,11 @@ describe("Anthropic raw SSE parsing", () => {
 		};
 		events[4].data = JSON.stringify(delta);
 
+		// The reported cost is only applied for OpenRouter endpoints.
 		const model = {
-			...getModel("openrouter", "anthropic/claude-haiku-4.5"),
-			provider: "openrouter-work",
+			...getModel("anthropic", "claude-haiku-4-5"),
+			provider: "openrouter",
+			baseUrl: "https://openrouter.ai/api",
 		};
 		const result = await streamAnthropic(
 			model,
@@ -318,7 +320,7 @@ describe("Anthropic raw SSE parsing", () => {
 		} as unknown as Anthropic;
 
 		await streamAnthropic(
-			getModel("openrouter", "anthropic/claude-haiku-4.5"),
+			getModel("anthropic", "claude-haiku-4-5"),
 			normalizeContext({ messages: [{ role: "user", content: "Hello", timestamp: 1 }] }),
 			{ client, thinkingEnabled: false },
 		).result();

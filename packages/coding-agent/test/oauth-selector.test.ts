@@ -156,11 +156,6 @@ describe("OAuthSelectorComponent", () => {
 		const apiKey = { apiKey: { name: "API key" } };
 		const providers = [
 			{ id: "anthropic", name: "Anthropic", auth: apiKey },
-			{
-				id: "openrouter",
-				name: "OpenRouter",
-				auth: { oauth: { name: "OpenRouter", login: async () => ({}) }, ...apiKey },
-			},
 			{ id: "zai", name: "Z.AI", auth: apiKey },
 			{ id: "radius", name: "Radius", auth: { oauth: { name: "Radius", login: async () => ({}) } } },
 			{ id: "google", name: "Google", auth: apiKey },
@@ -177,8 +172,6 @@ describe("OAuthSelectorComponent", () => {
 
 		expect(getLoginProviderOptions.call(fakeThis).map(({ id, authType }) => `${id}:${authType}`)).toEqual([
 			"radius:oauth",
-			"openrouter:oauth",
-			"openrouter:api_key",
 			"anthropic:api_key",
 			"google:api_key",
 			"zai:api_key",
@@ -189,7 +182,7 @@ describe("OAuthSelectorComponent", () => {
 		const tui = { requestRender: () => {} } as unknown as TUI;
 		const providers = [
 			{ id: "radius", name: "Radius", authType: "oauth" as const },
-			{ id: "openrouter", name: "OpenRouter", authType: "api_key" as const },
+			{ id: "zai", name: "Z.AI", authType: "api_key" as const },
 		];
 		const selector = new OAuthSelectorComponent(
 			"login",
@@ -202,14 +195,14 @@ describe("OAuthSelectorComponent", () => {
 		try {
 			const output = selector.render(120).join("\n");
 			expect(output).not.toContain(theme.fg("accent", "Radius"));
-			expect(output).toContain(theme.fg("text", "OpenRouter"));
+			expect(output).toContain(theme.fg("text", "Z.AI"));
 			expect(stripAnsi(output)).toContain("→ Radius");
 
 			selector.handleInput("\x1b[B");
 			const moved = selector.render(120).join("\n");
 			expect(moved).toContain(theme.fg("text", "Radius"));
-			expect(moved).not.toContain(theme.fg("accent", "OpenRouter"));
-			expect(stripAnsi(moved)).toContain("→ OpenRouter");
+			expect(moved).toContain(theme.fg("accent", "Z.AI"));
+			expect(stripAnsi(moved)).toContain("→ Z.AI");
 		} finally {
 			selector.dispose();
 		}
@@ -218,12 +211,12 @@ describe("OAuthSelectorComponent", () => {
 	it("keeps the accent style without a TUI to animate in", () => {
 		const selector = new OAuthSelectorComponent(
 			"login",
-			[{ id: "openrouter", name: "OpenRouter", authType: "api_key" }],
+			[{ id: "zai", name: "Z.AI", authType: "api_key" }],
 			() => {},
 			() => {},
 		);
 
-		expect(selector.render(120).join("\n")).toContain(theme.fg("accent", "OpenRouter"));
+		expect(selector.render(120).join("\n")).toContain(theme.fg("accent", "Z.AI"));
 	});
 
 	it("marks preferred partners with a star", () => {
@@ -231,8 +224,8 @@ describe("OAuthSelectorComponent", () => {
 			"login",
 			[
 				{ id: "radius", name: "Radius", authType: "oauth" },
-				{ id: "openrouter", name: "OpenRouter", authType: "api_key" },
 				{ id: "anthropic", name: "Anthropic", authType: "api_key" },
+				{ id: "zai", name: "Z.AI", authType: "api_key" },
 			],
 			() => {},
 			() => {},
@@ -240,7 +233,7 @@ describe("OAuthSelectorComponent", () => {
 
 		const output = stripAnsi(selector.render(120).join("\n"));
 		expect(output).toContain("→ Radius ✦ [subscription]");
-		expect(output).toContain("  OpenRouter ✦ [API key]");
 		expect(output).toContain("  Anthropic [API key]");
+		expect(output).toContain("  Z.AI [API key]");
 	});
 });
